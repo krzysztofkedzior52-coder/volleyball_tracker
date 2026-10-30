@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1720">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<title>Volleyball Stat Tracker</title>
+<style>
+:root{--bg:#0f1720;--panel:#18222e;--panel2:#233140;--line:#2c3b4c;--text:#eef3f8;--mut:#8fa3b8;--good:#1f9d5b;--bad:#c93a3f;--warn:#b7791f;--acc:#3b82f6;--us:#4c9aff;--them:#ff6b6b}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font:16px/1.3 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+body{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{touch-action:manipulation;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:pointer;border:0;border-radius:12px;background:var(--panel2);min-height:46px;padding:0 12px;font-weight:600}
+button:active{filter:brightness(1.35)}
+button:disabled{opacity:.35}
+button.pri{background:var(--acc);color:#fff}
+button.bad{background:var(--bad);color:#fff}
+button.ghost{background:transparent;border:1px solid var(--line)}
+input,select,textarea{width:100%;background:#0b121a;border:1px solid var(--line);border-radius:10px;padding:12px;min-height:46px}
+label{display:block;margin:10px 0;font-size:14px;color:var(--mut)}
+label input,label select{margin-top:4px;color:var(--text)}
+h2,h3{margin:8px 0}
+.wrap{max-width:900px;margin:0 auto}
+.top{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.top .ttl{flex:1;font-weight:700;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ic{width:46px;padding:0;font-size:20px}
+.sv{font-size:12px;color:var(--good);white-space:nowrap}.sv.busy{color:var(--mut)}.sv.err{color:#ff7b7b;font-weight:800}.sv.ro{color:#ffd27d;font-weight:700}
+.nav{display:flex;gap:6px;padding:8px 10px}.nav button{flex:1;min-height:42px;background:var(--panel)}.nav button.on{background:var(--acc);color:#fff}
+.pad{padding:10px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;margin:8px 0}
+.card.tap{display:block;width:100%;text-align:left;min-height:64px}
+.mut{color:var(--mut);font-size:13px}
+.banner{background:#4a3410;border:1px solid var(--warn);border-radius:12px;padding:10px;margin:8px 0;font-size:14px}
+.banner.red{background:#4a1416;border-color:var(--bad)}
+.gh{font-size:12px;font-weight:800;letter-spacing:.08em;color:var(--mut);text-transform:uppercase;margin:16px 2px 2px}
+.fchips{display:flex;gap:6px;overflow-x:auto;padding:10px 0 2px}.fchips button{min-height:38px;white-space:nowrap;background:var(--panel)}.fchips button.on{background:var(--acc);color:#fff}
+.pill{font-size:11px;padding:2px 7px;border-radius:99px;background:var(--panel2);color:var(--mut);font-weight:600}
+.pill.us{background:#173a63;color:#cfe3ff}.pill.them{background:#5a1d20;color:#ffd0d0}.pill.W{background:#123f27;color:#a6f0c6}.pill.L{background:#5a1d20;color:#ffd0d0}
+/* live */
+.score{display:grid;grid-template-columns:1fr 1.1fr 1fr;gap:6px;padding:8px 8px 4px}
+.side{background:var(--panel);border-radius:14px;padding:6px;text-align:center;border:2px solid var(--line)}
+.side.us{border-color:var(--us)}.side.them{border-color:var(--them)}
+.side .lbl{font-size:12px;font-weight:800;letter-spacing:.1em;color:var(--mut)}
+.side .num{font-size:44px;font-weight:800;line-height:1}
+.side button{min-height:34px;font-size:12px;width:100%;margin-top:4px;padding:0 4px}
+.mid{background:var(--panel);border-radius:14px;padding:6px;text-align:center;display:flex;flex-direction:column;gap:5px;justify-content:center}
+.mid .sl{font-weight:800;font-size:15px}
+.chips{display:flex;gap:4px;justify-content:center;flex-wrap:wrap}
+.chips button{min-height:30px;width:32px;padding:0;font-size:14px;border-radius:8px}.chips button.on{background:var(--acc);color:#fff}
+.mid .ns{min-height:36px;font-size:13px}
+.players{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:6px;padding:4px 8px}
+.pl{min-height:54px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2px;line-height:1.05;border:2px solid transparent}
+.pl b{font-size:22px}.pl small{font-size:10px;color:var(--mut);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.pl.on{background:var(--acc);color:#fff;border-color:#fff}.pl.on small{color:#dbe8ff}
+.players.shake{animation:shake .35s}
+@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.skills{padding:4px 8px 130px;display:flex;flex-direction:column;gap:6px}
+.row{display:grid;grid-template-columns:52px 1fr;gap:6px;align-items:stretch}
+.rl{display:flex;align-items:center;font-size:12px;font-weight:800;color:var(--mut);text-transform:uppercase}
+.btns{display:flex;gap:6px}.btns button{flex:1;min-height:56px;font-size:17px;padding:0 2px}
+.btns .g{background:var(--good);color:#fff}.btns .b{background:var(--bad);color:#fff}.btns .w{background:var(--warn);color:#fff}
+.hit{animation:hit .25s}
+@keyframes hit{0%{box-shadow:0 0 0 0 #fff;transform:scale(.94)}100%{box-shadow:0 0 0 12px transparent;transform:scale(1)}}
+.bar{position:fixed;left:0;right:0;bottom:0;padding:8px 10px calc(8px + env(safe-area-inset-bottom));background:#0b121aee;border-top:1px solid var(--line);display:flex;gap:10px;align-items:center;z-index:6}
+.bar .bl{flex:1;min-width:0;font-size:14px}.bar .bl div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#selTxt{font-weight:700}.bar button{min-width:110px;min-height:54px;font-size:17px}
+/* tables */
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:12px;margin:8px 0;-webkit-overflow-scrolling:touch}
+table.st{border-collapse:separate;border-spacing:0;font-size:14px;min-width:100%;white-space:nowrap}
+.st th,.st td{padding:9px 8px;text-align:right;border-bottom:1px solid var(--line);background:var(--panel)}
+.st th{font-size:12px;color:var(--mut);position:sticky;top:0;cursor:pointer;background:#111b26}.st th.on{color:#fff;background:var(--acc)}
+.st td:nth-child(1),.st th:nth-child(1){position:sticky;left:0;width:40px;min-width:40px;text-align:center;z-index:2}
+.st td:nth-child(2),.st th:nth-child(2){position:sticky;left:40px;text-align:left;z-index:2;border-right:1px solid var(--line)}
+.st tr.tot td{font-weight:800;background:var(--panel2)}
+.log .ev{display:flex;gap:8px;align-items:center;width:100%;text-align:left;min-height:48px;margin:4px 0;background:var(--panel)}
+.log .ev .a{flex:1}
+/* court */
+.court{padding:4px 8px}
+.netbar{height:7px;border-radius:4px;margin:0 2px 6px;background:repeating-linear-gradient(90deg,#9fb3c8 0 7px,#3a4b5e 7px 14px);opacity:.55}
+.cgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.cgrid .pl{min-height:60px}
+.cgrid.hl{grid-template-columns:repeat(3,1fr) .8fr}
+.cgrid.hl .pl.lib{grid-column:4;grid-row:1/3;min-height:0}
+.pl.lib{border:2px solid var(--warn)}
+.pl.lib.on{border-color:#fff}
+.needserve .row:not([data-g=srv]){opacity:.28;pointer-events:none}
+.needserve .row[data-g=srv] .btns{outline:2px solid var(--us);outline-offset:3px;border-radius:14px}
+.needserve .side button{opacity:.28;pointer-events:none}
+.needserve .pl:not(.srv){opacity:.45;pointer-events:none}
+.pl{position:relative}
+.pl .ps{position:absolute;top:3px;left:7px;font-size:11px;font-style:normal;font-weight:800;color:var(--mut)}
+.pl.on .ps{color:#dbe8ff}
+.pl.srv::after{content:'🏐';position:absolute;top:2px;right:5px;font-size:13px}
+.pl.ro{background:var(--panel2);border-radius:12px}
+.lustrip{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 10px;font-size:13px;font-weight:600;min-height:38px}
+.lustrip button{min-height:34px;font-size:13px;white-space:nowrap}
+/* live screen: compact so every button fits one phone screen */
+.live .top{padding:4px 10px}.live .top .ic{min-height:40px}
+.live .nav{padding:4px 10px}.live .nav button{min-height:36px}
+.live .score{padding:4px 8px 2px}
+.live .side .num{font-size:36px}.live .side button{min-height:28px;margin-top:2px}
+.live .mid{gap:3px}.live .mid .ns{min-height:30px}.live .chips button{min-height:26px}
+.live .lustrip{min-height:32px}.live .lustrip button{min-height:30px}
+.live .cgrid .pl{min-height:52px}.live .players{gap:5px}
+.live .skills{gap:5px;padding-bottom:84px}.live .btns button{min-height:50px}
+.live .bar{padding-top:6px}.live .bar button{min-height:50px}
+/* modal */
+.mback{position:fixed;inset:0;background:#000a;display:flex;align-items:flex-end;justify-content:center;z-index:50}
+.mbox{background:var(--panel);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom))}
+@media(min-width:700px){.mback{align-items:center}.mbox{border-radius:18px}}
+.mrow{display:flex;gap:8px;margin-top:12px}.mrow button{flex:1}
+.chk{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px}
+.cb{display:flex;align-items:center;gap:8px;margin:0;background:#0b121a;border:1px solid var(--line);border-radius:10px;padding:10px;color:var(--text)}.cb input{width:22px;height:22px;min-height:0;margin:0}
+.stack button{display:block;width:100%;margin:6px 0;text-align:left;padding:12px}
+.center{max-width:420px;margin:12vh auto 0;padding:16px}
+.tgl{display:flex;justify-content:space-between;align-items:center;width:100%;text-align:left;margin:6px 0}
+textarea{min-height:140px;font-family:ui-monospace,monospace;font-size:12px}
+@media(min-width:700px){.btns button{min-height:68px;font-size:20px}.pl{min-height:62px}}
+</style>
+</head>
+<body>
+<div id="app"><div class="center"><p class="mut">Loading…</p></div></div>
+<script src="config.js"></script>
+<script>
+'use strict';
+/* ================= helpers ================= */
+const $=id=>document.getElementById(id), app=$('app');
+const enc=new TextEncoder(), dec=new TextDecoder();
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4);
+const today=()=>new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10);
+function toB64(buf){const a=new Uint8Array(buf);let s='';for(let i=0;i<a.length;i+=0x8000)s+=String.fromCharCode.apply(null,a.subarray(i,i+0x8000));return btoa(s)}
+function fromB64(s){const b=atob(s),a=new Uint8Array(b.length);for(let i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a}
+const ssGet=k=>{try{return sessionStorage.getItem(k)}catch(e){return null}};
+const ssSet=(k,v)=>{try{sessionStorage.setItem(k,v)}catch(e){}};
+const ssDel=k=>{try{sessionStorage.removeItem(k)}catch(e){}};
+// per-device preferences (not team data)
+let settings={sticky:true,haptic:true,lastBackup:0};
+try{Object.assign(settings,JSON.parse(localStorage.getItem('vbs.set')||'{}'))}catch(e){}
+const saveSettings=()=>{try{localStorage.setItem('vbs.set',JSON.stringify(settings))}catch(e){}};
+let DEV=null;try{DEV=localStorage.getItem('vbs.dev')}catch(e){}
+if(!DEV)DEV=ssGet('vbs.dev');
+if(!DEV){DEV='d'+Math.random().toString(36).slice(2,7);try{localStorage.setItem('vbs.dev',DEV)}catch(e){}ssSet('vbs.dev',DEV)}
+
+/* ================= state ================= */
+let state=defState(),KEY=null,view='boot',mview='live',curId=null,sel=null,loaded=false;
+let db=null,col=null,user=null,downloadsCap=null,readOnly=false;
+let raw={},synced={};
+let lastKey='',lastT=0,lastMsg='',sortKey='num',sortDir=1,statSet='all',statFilter='all',mFilter='all',saveStatus='ok',pending=null,exportData=null;
+function defState(){return{players:[],matches:[],events:[]}}
+const TYPES=[['league','League'],['tournament','Tournament'],['scrimmage','Scrimmage'],['practice','Practice'],['other','Other']];
+const TYPE_LBL=Object.fromEntries(TYPES);
+
+/* ================= definitions ================= */
+const GROUPS=[
+ {k:'srv',name:'Serve',b:[['ace','Ace','us','g','Serve ace'],['in','In','','','Serve in'],['err','Error','them','b','Serve error']]},
+ {k:'rec',name:'Pass',b:[['3','3','','g','Pass 3'],['2','2','','','Pass 2'],['1','1','','w','Pass 1'],['0','0','them','b','Pass 0 (aced / error)']]},
+ {k:'att',name:'Attack',b:[['kill','Kill','us','g','Kill'],['swing','Swing','','','Swing (no point)'],['err','Error','them','b','Attack error']]},
+ {k:'blk',name:'Block',b:[['stuff','Stuff','us','g','Block point'],['ast','Blk ast','','','Block assist'],['err','Error','them','b','Block error']]},
+ {k:'oth',name:'Other',b:[['dig','Dig','','','Dig'],['set','Assist','','','Set assist'],['fault','Fault','them','b','Fault (net/lift/rotation/dig err)']]}
+];
+const DEF={},LBL={'team.us':'Opponent error (+1 us)','team.them':'Opponent point (+1 them)','lu.sub':'Substitution','lu.rotf':'Rotation corrected (forward)','lu.rotb':'Rotation corrected (back)','lu.svus':'Serve set to: us','lu.svthem':'Serve set to: opponent','lu.lib':'Libero change','lu.sknsv':'Serve result skipped'};
+GROUPS.forEach(g=>g.b.forEach(b=>{DEF[g.k+'.'+b[0]]={pt:b[2]};LBL[g.k+'.'+b[0]]=b[4]}));
+
+/* ================= crypto ================= */
+// A random data key (KEY) encrypts every team document. The password only wraps that key (stored in 'meta'),
+// so changing the password is instant and never re-encrypts data.
+async function derive(pw,salt){
+  const km=await crypto.subtle.importKey('raw',enc.encode(pw),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:200000,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+}
+const importK=r=>crypto.subtle.importKey('raw',r,'AES-GCM',true,['encrypt','decrypt']);
+async function encWith(key,bytes){const iv=crypto.getRandomValues(new Uint8Array(12));const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,bytes);return toB64(iv)+'.'+toB64(ct)}
+async function decWith(key,s){const[i,c]=s.split('.');return new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv:fromB64(i)},key,fromB64(c)))}
+const encStr=s=>encWith(KEY,enc.encode(s));
+const decStr=async s=>dec.decode(await decWith(KEY,s));
+async function writeMeta(pw,Kraw,chk){
+  const salt=crypto.getRandomValues(new Uint8Array(16));const pk=await derive(pw,salt);
+  await col.doc('meta').set({salt:toB64(salt),wrap:await encWith(pk,Kraw),chk});
+}
+async function unwrap(pw){
+  const m=raw.meta;if(!m)return null;
+  try{const pk=await derive(pw,fromB64(m.salt));const Kr=await decWith(pk,m.wrap);const K=await importK(Kr);await decWith(K,m.chk);return{K,Kr}}catch(e){return null}
+}
+
+/* ================= remote model & sync ================= */
+const sortEvents=()=>state.events.sort((a,b)=>a.ts-b.ts||(a.id<b.id?-1:1));
+// short content hash: lets us remember what the server holds without keeping a second copy
+const H=s=>{let h1=0xdeadbeef,h2=0x41c6ce57;for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);h1=Math.imul(h1^c,2654435761);h2=Math.imul(h2^c,1597334677)}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return(4294967296*(2097151&h2)+(h1>>>0)).toString(36)+'.'+s.length};
+// Tab-session safety net: the working copy (including taps not yet sent) is mirrored into this tab's
+// sessionStorage, so an accidental refresh restores it. Closing the tab clears it, by design.
+const SNAP='vbs.snap';let snapTimer=null,ssOK=true,needReconcile=false,pendingN=0;
+function saveSnap(){
+  clearTimeout(snapTimer);
+  if(!KEY||!loaded)return;
+  try{sessionStorage.setItem(SNAP,JSON.stringify({v:1,state,sync:synced,meta:raw.meta||null,ro:readOnly,team:teamId||'',nav:{view,curId,mview,sel,mFilter,statFilter}}));ssOK=true}catch(e){ssOK=false}
+}
+const saveSnapSoon=()=>{clearTimeout(snapTimer);snapTimer=setTimeout(saveSnap,150)};
+function loadSnap(){try{const s=JSON.parse(sessionStorage.getItem(SNAP)||'null');return s&&s.v===1&&s.meta?s:null}catch(e){return null}}
+window.addEventListener('pagehide',saveSnap);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')saveSnap()});
+const tmo=(p,ms=15000)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej({code:'unavailable',message:'timeout'}),ms))]);
+function computeRemote(){
+  const out={roster:JSON.stringify(state.players)};
+  state.matches.forEach(m=>{out['m_'+m.id]=JSON.stringify(m)});
+  const by={};state.events.forEach(v=>{(by[v.c]||(by[v.c]=[])).push(v)});
+  for(const c in by)out['e_'+c]=JSON.stringify(by[c]);
+  return out;
+}
+function applyDoc(id,R){
+  if(id==='roster'){state.players=R==null?[]:JSON.parse(R);return}
+  if(id.startsWith('m_')){
+    const mid=id.slice(2);state.matches=state.matches.filter(m=>m.id!==mid);
+    if(R==null){state.events=state.events.filter(v=>v.m!==mid)}else state.matches.push(JSON.parse(R));
+    return;
+  }
+  if(id.startsWith('e_')){
+    const c=id.slice(2);state.events=state.events.filter(v=>v.c!==c);
+    if(R!=null)state.events.push(...JSON.parse(R).map(v=>Object.assign(v,{c})));
+    sortEvents();
+  }
+}
+async function bulkLoad(){
+  state=defState();synced={};
+  for(const id in raw){
+    if(id==='meta'||!raw[id]||!raw[id].e)continue;
+    try{const R=await decStr(raw[id].e);applyDoc(id,R);synced[id]=H(R)}catch(e){console.warn('could not read',id)}
+  }
+  sortEvents();loaded=true;saveSnap();
+}
+let ingestQ=Promise.resolve();
+function ingestMany(ids){
+  ingestQ=ingestQ.then(async()=>{
+    const local=computeRemote();let changed=false;
+    for(const id of ids){
+      let R=null;
+      try{if(raw[id]&&raw[id].e)R=await decStr(raw[id].e)}catch(e){continue}
+      const L=local[id],S=synced[id];
+      const Rh=R==null?undefined:H(R),Lh=L==null?undefined:H(L);
+      if(Rh===Lh){if(Rh==null)delete synced[id];else synced[id]=Rh;continue}
+      if(Lh!==S)continue;                      // we have unsent local edits to this doc: ours win
+      applyDoc(id,R);if(R==null){delete synced[id];delete local[id]}else{synced[id]=Rh;local[id]=R}
+      changed=true;
+    }
+    if(changed){saveSnapSoon();refreshUI()}
+  }).catch(e=>console.error(e));
+}
+function onColSnap(snap){
+  const ids=[];
+  snap.docChanges().forEach(ch=>{const id=ch.doc.id;if(ch.type==='removed')delete raw[id];else raw[id]=ch.doc.data();if(id!=='meta')ids.push(id)});
+  if(!KEY){
+    if(view==='notready'&&raw.meta){view='lock';render()}
+    else if((view==='lock')&&!raw.meta){view=readOnly?'notready':'setup';render()}
+    return;
+  }
+  if(loaded){
+    let all=ids;
+    // after a restore, the first server-definitive snapshot also tells us about docs deleted remotely meanwhile
+    if(needReconcile&&!(snap.metadata&&snap.metadata.fromCache)){needReconcile=false;all=[...new Set([...ids,...Object.keys(synced)])]}
+    if(all.length)ingestMany(all);
+  }
+}
+let syncTimer=null,syncing=false,gen=0;
+function markDirty(){if(readOnly||!KEY||!loaded)return;gen++;setSave('busy');saveSnapSoon();clearTimeout(syncTimer);syncTimer=setTimeout(pushSync,600)}
+async function pushSync(){
+  if(syncing){syncTimer=setTimeout(pushSync,300);return}
+  syncing=true;const g=gen;
+  try{
+    const local=computeRemote();
+    const ops=Object.keys(local).filter(id=>H(local[id])!==synced[id]);
+    const dels=Object.keys(synced).filter(id=>!(id in local));
+    pendingN=ops.length+dels.length;
+    if(!col)throw{code:'unavailable',message:'not connected'};
+    for(const id of ops){const body={e:await encStr(local[id])};await tmo(col.doc(id).set(body));synced[id]=H(local[id])}
+    for(const id of dels){await tmo(col.doc(id).delete());delete synced[id]}
+    saveSnap();
+    if(g!==gen){syncTimer=setTimeout(pushSync,200)}else{pendingN=0;setSave('ok')}
+  }catch(err){
+    console.error(err);saveSnap();
+    if(err&&err.code==='invalid_argument'){readOnly=true;setSave('ro');refreshUI(true)}
+    else{permDenied(err);setSave('err');syncTimer=setTimeout(pushSync,4000)}
+  }finally{syncing=false}
+}
+function setSave(s){
+  saveStatus=readOnly?'ro':s;const el=$('sv');if(!el)return;
+  const t={ok:'● Synced',busy:'◌ Saving…',err:'⚠ Offline · kept on device',ro:'👁 View only'}[saveStatus];
+  el.textContent=t;el.className='sv '+(saveStatus==='ok'?'':saveStatus);
+}
+window.addEventListener('beforeunload',e=>{if(saveStatus==='busy'||saveStatus==='err'){e.preventDefault();e.returnValue=''}});
+function busyUI(){const a=document.activeElement;return $('modal')||(a&&/INPUT|SELECT|TEXTAREA/.test(a.tagName))}
+function refreshUI(force){
+  if(!KEY||busyUI())return;
+  if(view==='match'){
+    if(!curMatch()){view='matches';curId=null;return render()}
+    if(mview==='live'&&!readOnly&&!force)return updateLive();
+  }
+  if(view==='boot'||view==='lock'||view==='setup')return;
+  render();
+}
+
+/* ================= session / auth flow ================= */
+async function cacheKey(Kr){ssSet('vbs.k',toB64(Kr))}
+async function enter(){view='matches';render();markDirty()}
+/* ---- storage backends ----
+   claude  : inside claude.ai (shared db capability)
+   firebase: standalone hosting (GitHub Pages) with shared team data in Firestore (config.js)
+   local   : standalone, no config → this browser only */
+const inClaude=!!(window.claude&&window.claude.use);
+let backend='',teamId=null,permWarned=false;
+const b64url=u8=>toB64(u8).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+function resolveTeam(){
+  if(inClaude||!(window.VBS_CONFIG&&VBS_CONFIG.firebase))return null;
+  const m=/[#&]t=([A-Za-z0-9_-]{22,})/.exec(location.hash);
+  if(m){try{localStorage.setItem('vbs.team',m[1])}catch(e){}return m[1]}
+  try{return localStorage.getItem('vbs.team')}catch(e){return null}
+}
+function localCol(name){
+  const K='vbs.local.'+name,subs=new Set();
+  const read=()=>{try{return JSON.parse(localStorage.getItem(K)||'{}')}catch(e){return{}}};
+  const fire=()=>subs.forEach(f=>f());
+  window.addEventListener('storage',e=>{if(e.key===K)fire()});
+  return{
+    doc:id=>({
+      set:async d=>{const o=read();o[id]=JSON.parse(JSON.stringify(d));localStorage.setItem(K,JSON.stringify(o));fire()},
+      delete:async()=>{const o=read();delete o[id];localStorage.setItem(K,JSON.stringify(o));fire()}}),
+    onSnapshot(next){
+      let prev={};
+      const f=()=>{const cur=read(),ch=[];
+        for(const id in cur)if(!(id in prev)||JSON.stringify(prev[id])!==JSON.stringify(cur[id]))ch.push({type:id in prev?'modified':'added',doc:{id,data:()=>cur[id]}});
+        for(const id in prev)if(!(id in cur))ch.push({type:'removed',doc:{id,data:()=>prev[id]}});
+        prev=cur;next({docChanges:()=>ch,metadata:{fromCache:false}})};
+      subs.add(f);setTimeout(f,0);return()=>subs.delete(f);
+    }};
+}
+const loadScript=src=>new Promise((res,rej)=>{if(document.querySelector('script[src="'+src+'"]'))return res();const el=document.createElement('script');el.src=src;el.onload=res;el.onerror=()=>rej(new Error('Could not load '+src));document.head.appendChild(el)});
+async function loadFirebase(){
+  if(window.firebase&&firebase.firestore)return;
+  const base='https://www.gstatic.com/firebasejs/10.14.1/';
+  await loadScript(base+'firebase-app-compat.js');await loadScript(base+'firebase-firestore-compat.js');
+}
+async function connectDB(){
+  if(inClaude){
+    try{db=await claude.use('db')}catch(e){db=null}
+    if(!db)return false;
+    backend='claude';
+    try{user=await claude.use('user')}catch(e){user=null}
+    try{downloadsCap=await claude.use('downloads')}catch(e){downloadsCap=null}
+    try{const cw=user&&user.can?await user.can('data.write'):null;readOnly=(cw===false)}catch(e){}
+    col=db.collection('d');return true;
+  }
+  // standalone: downloads work normally
+  downloadsCap={save:async({filename,data})=>{const a=document.createElement('a');a.href=URL.createObjectURL(data);a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}};
+  const cfg=window.VBS_CONFIG||{};
+  if(cfg.firebase){
+    backend='firebase';
+    if(!teamId)return false;
+    try{
+      await loadFirebase();
+      const app=firebase.apps.length?firebase.app():firebase.initializeApp(cfg.firebase);
+      const fdb=firebase.firestore(app);
+      try{await fdb.enablePersistence({synchronizeTabs:true})}catch(e){}   // offline cache; harmless if unsupported
+      col=fdb.collection('teams').doc(teamId).collection('d');return true;
+    }catch(e){console.error(e);return false}
+  }
+  backend='local';col=localCol('main');return true;
+}
+function permDenied(e){if(e&&e.code==='permission-denied'&&!permWarned){permWarned=true;info('The shared database refused access (permission-denied). The Firebase security rules from the README need to be published.')}}
+function subscribe(){
+  let first;const fp=new Promise(r=>first=r);
+  try{col.onSnapshot(s=>{try{onColSnap(s)}catch(e){console.error(e)}first()},e=>{console.error(e);permDenied(e);first()})}catch(e){first()}
+  return Promise.race([fp,new Promise(r=>setTimeout(r,10000))]);
+}
+async function boot(){
+  teamId=resolveTeam();
+  // 1) Refresh recovery: restore this tab's working copy (incl. unsent taps) and carry on immediately
+  const snap=loadSnap(),k=ssGet('vbs.k');
+  if(snap&&k&&(snap.team||'')===(teamId||'')){
+    try{
+      const K=await importK(fromB64(k));await decWith(K,snap.meta.chk);
+      KEY=K;state=Object.assign(defState(),snap.state);synced=snap.sync||{};raw.meta=snap.meta;readOnly=!!snap.ro;loaded=true;needReconcile=true;
+      const n=snap.nav||{};view=['matches','roster','stats','settings','match'].includes(n.view)?n.view:'matches';
+      curId=n.curId||null;mview=n.mview||'live';sel=n.sel||null;mFilter=n.mFilter||'all';statFilter=n.statFilter||'all';
+      if(view==='match'&&!curMatch())view='matches';
+      render();
+      (async()=>{while(!await connectDB())await new Promise(r=>setTimeout(r,5000));await subscribe();markDirty();refreshUI()})();
+      return;
+    }catch(e){KEY=null;loaded=false;state=defState();synced={};raw={}}
+  }
+  // 2) Normal start
+  if(!await connectDB()){view=(backend==='firebase'&&!teamId)?'team':'nodb';return render()}
+  await subscribe();
+  if(!raw.meta){view=readOnly?'notready':'setup';return render()}
+  if(k){try{const Kr=fromB64(k);const K=await importK(Kr);await decWith(K,raw.meta.chk);KEY=K;await bulkLoad();view='matches';return render()}catch(e){KEY=null}}
+  view='lock';render();
+}
+async function unlock(pw){const r=await unwrap(pw);if(!r)return false;KEY=r.K;await cacheKey(r.Kr);await bulkLoad();return true}
+async function setupNew(pw){
+  const Kr=crypto.getRandomValues(new Uint8Array(32));KEY=await importK(Kr);
+  try{await writeMeta(pw,Kr,await encStr('vbs-ok'))}catch(e){KEY=null;throw e}
+  state=defState();synced={};loaded=true;await cacheKey(Kr);
+}
+function joinTeam(id){try{localStorage.setItem('vbs.team',id)}catch(e){}ssDel('vbs.k');ssDel(SNAP);history.replaceState(null,'','#t='+id);location.reload()}
+function lock(){KEY=null;loaded=false;state=defState();synced={};sel=null;ssDel('vbs.k');ssDel(SNAP);view='lock';render()}
+
+/* ================= stats ================= */
+const fresh=()=>({ace:0,se:0,sin:0,r3:0,r2:0,r1:0,r0:0,k:0,e:0,sw:0,bs:0,ba:0,be:0,dig:0,ast:0,fault:0});
+function fin(s){s.rn=s.r3+s.r2+s.r1+s.r0;s.rec=s.rn?(3*s.r3+2*s.r2+s.r1)/s.rn:null;s.ta=s.k+s.e+s.sw;s.hit=s.ta?(s.k-s.e)/s.ta:null;s.pts=s.ace+s.k+s.bs;s.err=s.se+s.e+s.be+s.fault+s.r0;return s}
+function calc(evs){
+  const S={};
+  for(const v of evs){
+    if(!v.p||v.k==='lu')continue;const s=S[v.p]||(S[v.p]=fresh());
+    switch(v.k+'.'+v.r){
+      case'srv.ace':s.ace++;break;case'srv.in':s.sin++;break;case'srv.err':s.se++;break;
+      case'rec.3':s.r3++;break;case'rec.2':s.r2++;break;case'rec.1':s.r1++;break;case'rec.0':s.r0++;break;
+      case'att.kill':s.k++;break;case'att.swing':s.sw++;break;case'att.err':s.e++;break;
+      case'blk.stuff':s.bs++;break;case'blk.ast':s.ba++;break;case'blk.err':s.be++;break;
+      case'oth.dig':s.dig++;break;case'oth.set':s.ast++;break;case'oth.fault':s.fault++;break;
+    }
+  }
+  for(const id in S)fin(S[id]);
+  return S;
+}
+function score(mid,set){let us=0,them=0;for(const v of state.events){if(v.m===mid&&v.s===set){if(v.pt==='us')us++;else if(v.pt==='them')them++}}return{us,them}}
+function setsWL(m){let w=0,l=0;for(let s=1;s<=m.nsets;s++){if(s<m.nsets||m.done){const c=score(m.id,s);if(c.us>c.them)w++;else if(c.them>c.us)l++}}return{w,l}}
+const P=id=>state.players.find(p=>p.id===id);
+const plabel=p=>p?'#'+p.num+(p.name?' '+p.name:''):'(removed player)';
+const numVal=n=>{const x=parseInt(n,10);return isNaN(x)?9999:x};
+const sortedPlayers=list=>list.slice().sort((a,b)=>numVal(a.num)-numVal(b.num)||String(a.num).localeCompare(String(b.num)));
+const curMatch=()=>state.matches.find(m=>m.id===curId);
+const fmtHit=h=>h==null?'–':(h<0?'-':'')+Math.abs(h).toFixed(3).replace(/^0/,'');
+const COLS=[['num','#'],['name','Player'],['pts','Pts'],['ace','Ace'],['se','SE'],['rec','Pass'],['rn','PN'],['k','K'],['e','E'],['ta','TA'],['hit','Hit%'],['bs','BS'],['ba','BA'],['dig','Dig'],['ast','Ast'],['err','Err']];
+function cell(k,p,s){
+  if(k==='num')return p?esc(p.num):'';
+  if(k==='name')return p?esc(p.name||'—'):'TEAM';
+  if(k==='hit')return fmtHit(s.hit);
+  if(k==='rec')return s.rec==null?'–':s.rec.toFixed(2);
+  return s[k];
+}
+function buildRows(evs){
+  const S=calc(evs),rows=[];
+  for(const id in S)rows.push({p:P(id)||{id,num:'?',name:'removed'},s:S[id]});
+  const T=fresh();rows.forEach(r=>{for(const k in T)T[k]+=r.s[k]});fin(T);
+  rows.sort((a,b)=>{
+    if(sortKey==='num')return sortDir*(numVal(a.p.num)-numVal(b.p.num));
+    if(sortKey==='name')return sortDir*String(a.p.name).localeCompare(String(b.p.name));
+    let x=a.s[sortKey],y=b.s[sortKey];x=x==null?-9:x;y=y==null?-9:y;return -sortDir*(x-y)||numVal(a.p.num)-numVal(b.p.num);
+  });
+  return{rows,T};
+}
+function statsHTML(evs){
+  const{rows,T}=buildRows(evs);
+  if(!rows.length)return'<div class="card mut">No player stats recorded yet.</div>';
+  const head=COLS.map(([k,h])=>`<th data-a="sort" data-key="${k}" class="${k===sortKey?'on':''}">${h}</th>`).join('');
+  const body=rows.map(r=>'<tr>'+COLS.map(([k])=>`<td>${cell(k,r.p,r.s)}</td>`).join('')+'</tr>').join('');
+  const tot='<tr class="tot">'+COLS.map(([k])=>`<td>${k==='num'?'':cell(k,null,T)}</td>`).join('')+'</tr>';
+  return`<div class="tw"><table class="st"><thead><tr>${head}</tr></thead><tbody>${body}${tot}</tbody></table></div>
+  <p class="mut">Pts = aces + kills + block points · SE serve errors · Pass = avg 0–3, PN = passes · K kills, E attack errors, TA = K+E+swings · Hit% = (K−E)/TA · BS block points, BA block assists · Err = all errors that gave a point away. Tap a heading to sort.</p>`;
+}
+function statsCSV(evs){
+  const{rows,T}=buildRows(evs);const q=v=>'"'+String(v).replace(/"/g,'""')+'"';
+  return COLS.map(c=>c[1]).join(',')+'\n'+rows.map(r=>COLS.map(([k])=>q(cell(k,r.p,r.s))).join(',')).join('\n')+'\n'+COLS.map(([k])=>q(k==='num'?'':k==='name'?'TEAM':cell(k,null,T))).join(',');
+}
+function eventsCSV(evs){
+  const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  const mm=id=>state.matches.find(x=>x.id===id)||{};
+  return'date,type,event,opponent,set,time,player,action,point_to\n'+evs.map(v=>{const m=mm(v.m);return[m.date,TYPE_LBL[m.type]||'',m.ev||'',m.opp,v.s,new Date(v.ts).toISOString(),v.p&&v.k!=='lu'?plabel(P(v.p)):'',evDesc(v,true),v.pt||''].map(q).join(',')}).join('\n');
+}
+// filter encoding: all | t:<type> | e:<event name> | m:<match id>
+function filterOptions(){
+  const ms=state.matches.slice().sort((a,b)=>b.date.localeCompare(a.date));
+  const types=TYPES.filter(([k])=>ms.some(m=>m.type===k));
+  const evs=[...new Set(ms.map(m=>m.ev).filter(Boolean))];
+  return{ms,types,evs};
+}
+function filterIds(f){
+  if(f==='all')return null;
+  const t=f.slice(0,2),v=f.slice(2);
+  return new Set(state.matches.filter(m=>t==='t:'?m.type===v:t==='e:'?m.ev===v:m.id===v).map(m=>m.id));
+}
+function filterSelect(){
+  const{ms,types,evs}=filterOptions();
+  const o=(v,l)=>`<option value="${esc(v)}" ${statFilter===v?'selected':''}>${esc(l)}</option>`;
+  return`<label>Show stats for<select data-ch="statFilter">${o('all','All games (season)')}
+  ${types.length?'<optgroup label="By type">'+types.map(([k,l])=>o('t:'+k,'All '+l.toLowerCase()+' games')).join('')+'</optgroup>':''}
+  ${evs.length?'<optgroup label="By tournament / event">'+evs.map(e=>o('e:'+e,e)).join('')+'</optgroup>':''}
+  <optgroup label="Single game">${ms.map(m=>o('m:'+m.id,m.date+' vs '+m.opp+' ('+TYPE_LBL[m.type]+')')).join('')}</optgroup></select></label>`;
+}
+
+/* ================= modal ================= */
+function modal(html){closeModal();const d=document.createElement('div');d.id='modal';d.className='mback';d.innerHTML='<div class="mbox">'+html+'</div>';document.body.appendChild(d)}
+function closeModal(){const d=$('modal');if(d)d.remove()}
+function confirmBox(msg,ok,fn,danger){modal(`<p>${msg}</p><div class="mrow"><button data-a="mclose">Cancel</button><button class="${danger?'bad':'pri'}" data-a="mok">${ok}</button></div>`);pending=fn}
+function info(msg){modal(`<p>${msg}</p><div class="mrow"><button class="pri" data-a="mclose">OK</button></div>`)}
+function showExport(title,filename,text,mime){
+  exportData={filename,text,mime};
+  modal(`<h3>${esc(title)}</h3><textarea id="exTxt" readonly>${esc(text)}</textarea>
+  <div class="mrow"><button data-a="excopy" class="pri">Copy</button>${downloadsCap?'<button data-a="exdl">Save file</button>':''}<button data-a="mclose">Close</button></div>
+  <p class="mut" id="exMsg">Copy and paste into Notes / email / a file to keep it.</p>`);
+}
+
+/* ================= views ================= */
+function render(){
+  if(view==='boot')return;
+  saveSnapSoon();
+  if(view==='nodb')return app.innerHTML=`<div class="center"><h2>🏐 Volleyball Stats</h2><p>${inClaude?'Shared team storage isn’t available in this view. Open the tracker from its claude.ai link while signed in to claude.ai.':'Couldn’t reach the shared team storage. Check your connection and reload.'}</p><button class="pri" style="width:100%;min-height:50px" onclick="location.reload()">Reload</button></div>`;
+  if(view==='team')return app.innerHTML=`<div class="center"><h2>🏐 Volleyball Stats</h2><p class="mut">Teams are private links. Start a new team, or join one with the link or code a coach shared with you.</p>
+  <button class="pri" style="width:100%;min-height:54px" data-a="teamnew">Create a new team</button>
+  <form id="fTeam" style="margin-top:22px"><label>Join with a team link or code<input id="tCode" placeholder="https://…#t=…  or the code" autocomplete="off" required></label><div id="err" style="color:#ff8a8a;min-height:18px"></div><button style="width:100%;min-height:50px" type="submit">Join team</button></form></div>`;
+  if(view==='notready')return app.innerHTML='<div class="center"><h2>🏐 Volleyball Stats</h2><p>The team hasn’t been set up yet. Ask the coach (who owns this page) to open it once and create the team password.</p></div>';
+  if(view==='setup')return setupView();
+  if(view==='lock')return lockView();
+  if(view==='match')return matchView();
+  const navs=[['matches','Games'],['roster','Roster'],['stats','Stats'],['settings','Settings']];
+  let main='';
+  if(view==='matches')main=matchesHTML();
+  else if(view==='roster')main=rosterHTML();
+  else if(view==='stats')main=seasonStatsHTML();
+  else if(view==='settings')main=settingsHTML();
+  app.innerHTML=`<div class="wrap"><header class="top"><div class="ttl">🏐 Volleyball Stats</div><span id="sv" class="sv"></span><button class="ic" data-a="lock" title="Lock">🔒</button></header>
+  <nav class="nav">${navs.map(n=>`<button data-a="nav" data-v="${n[0]}" class="${view===n[0]?'on':''}">${n[1]}</button>`).join('')}</nav><main class="pad">${readOnly?'<div class="banner">👁 View only — you can follow live stats but not record or edit. Recording needs edit access from the page owner.</div>':''}${main}</main></div>`;
+  setSave(saveStatus);
+}
+function setupView(){
+  app.innerHTML=`<div class="center"><h2>🏐 Volleyball Stats</h2><p class="mut">Create the team password. Everyone who opens this link needs it to read the stats; the data is stored encrypted and shared across devices.</p>
+  <form id="fSetup"><label>Password (6+ characters)<input id="pw1" type="password" autocomplete="new-password" required></label>
+  <label>Repeat password<input id="pw2" type="password" autocomplete="new-password" required></label>
+  <div id="err" class="mut" style="color:#ff8a8a;min-height:20px"></div>
+  <button class="pri" style="width:100%;min-height:52px" type="submit">Create</button></form>
+  <p class="mut" style="margin-top:14px">Passwords can’t be recovered. Share it with your coaches and keep a backup.</p></div>`;
+}
+function lockView(){
+  app.innerHTML=`<div class="center"><h2>🔒 Volleyball Stats</h2><form id="fLock"><label>Team password<input id="pw" type="password" autocomplete="current-password" autofocus required></label>
+  <div id="err" style="color:#ff8a8a;min-height:20px"></div><button class="pri" style="width:100%;min-height:52px" type="submit">Unlock</button></form>
+  ${readOnly?'':'<p class="mut" style="margin-top:18px"><a href="#" data-a="forgot" style="color:var(--us)">Forgot password?</a></p>'}</div>`;
+  setTimeout(()=>{const e=$('pw');if(e)e.focus()},50);
+}
+function matchResult(m){
+  const{w,l}=setsWL(m);const sets=[];
+  for(let s=1;s<=m.nsets;s++){const sc=score(m.id,s);if(sc.us||sc.them)sets.push(sc.us+'–'+sc.them)}
+  const res=m.done?`<span class="pill ${w>l?'W':l>w?'L':''}">${w>l?'W':l>w?'L':'T'} ${w}–${l}</span>`:'<span class="pill">in progress</span>';
+  return`${res} <span class="mut">${sets.join(' · ')||'No points yet'}</span>`;
+}
+function matchesHTML(){
+  const age=(Date.now()-settings.lastBackup)/864e5;
+  const noss=ssOK?'':'<div class="banner red">This browser can’t hold unsent taps across a refresh. If the badge says Offline, don’t refresh or close the page.</div>';
+  const lm=backend==='local'?'<div class="banner">Single-device mode: stats are stored only in this browser and are not shared. To share live stats with other coaches, set up the shared database (see README).</div>':'';
+  const warn=lm+noss+((!readOnly&&state.events.length&&(!settings.lastBackup||age>14))?`<div class="banner">${settings.lastBackup?'Your last backup on this device was '+Math.floor(age)+' days ago.':'You haven’t exported a backup yet.'} Data is shared and saved online, but a backup is cheap insurance — <a href="#" data-a="backup" style="color:#ffd27d">export now</a>.</div>`:'');
+  const counts={all:state.matches.length};TYPES.forEach(([k])=>counts[k]=state.matches.filter(m=>m.type===k).length);
+  const chips=[['all','All'],...TYPES.filter(([k])=>counts[k])].map(([k,l])=>`<button data-a="mfilter" data-k="${k}" class="${mFilter===k?'on':''}">${l} ${counts[k]}</button>`).join('');
+  const list=state.matches.filter(m=>mFilter==='all'||m.type===mFilter).sort((a,b)=>b.date.localeCompare(a.date)||b.ts-a.ts);
+  const groups=[];const idx={};
+  list.forEach(m=>{const key=m.ev?'e:'+m.ev:'t:'+m.type;if(!(key in idx)){idx[key]=groups.length;groups.push({title:m.ev||TYPE_LBL[m.type]+' games',sub:m.ev?TYPE_LBL[m.type]:'',items:[]})}groups[idx[key]].items.push(m)});
+  return`${warn}${readOnly?'':'<button class="pri" data-a="newmatch" style="width:100%;min-height:58px;font-size:18px">+ New game</button>'}
+  ${state.matches.length?`<div class="fchips">${chips}</div>`:''}
+  ${groups.map(g=>`<div class="gh">${esc(g.title)}${g.sub?' · '+g.sub:''}</div>`+g.items.map(m=>`<button class="card tap" data-a="open" data-id="${m.id}"><b>vs ${esc(m.opp||'Opponent')}</b> <span class="mut">${esc(m.date)}</span> <span class="pill">${TYPE_LBL[m.type]||''}</span><div style="margin-top:6px">${matchResult(m)}</div></button>`).join('')).join('')||'<p class="mut">No games yet.'+(readOnly?'':' Add your roster, then start a game.')+'</p>'}`;
+}
+function rosterHTML(){
+  const list=sortedPlayers(state.players.filter(p=>!p.arch));
+  return`${readOnly?'':`<form id="fPlayer" style="display:flex;gap:8px;align-items:end"><label style="width:84px;margin:0">#<input id="pNum" inputmode="numeric" maxlength="3" required></label>
+  <label style="flex:1;margin:0">Name<input id="pName" autocomplete="off" placeholder="optional"></label><button class="pri" type="submit" style="min-height:46px">Add</button></form>
+  <div class="mrow"><button data-a="pquick" class="ghost">Quick add #1–12</button></div>`}
+  ${list.map(p=>`<button class="card tap" ${readOnly?'':`data-a="pedit" data-id="${p.id}"`}><b style="font-size:20px">#${esc(p.num)}</b> ${esc(p.name)}</button>`).join('')||'<p class="mut">No players yet.</p>'}`;
+}
+function seasonStatsHTML(){
+  const ids=filterIds(statFilter);
+  const evs=state.events.filter(v=>!ids||ids.has(v.m));
+  return`${filterSelect()}${statsHTML(evs)}<div class="mrow"><button data-a="csvStats" data-sc="season">Export stats CSV</button></div>`;
+}
+function settingsHTML(){
+  return`<button class="card tgl" data-a="tgl" data-k="sticky"><span><b>Keep player selected</b><div class="mut">After each button the same player stays selected (fastest). Off = clears after every tap.</div></span><b>${settings.sticky?'ON':'OFF'}</b></button>
+  <button class="card tgl" data-a="tgl" data-k="haptic"><span><b>Vibrate on tap</b><div class="mut">Where the device supports it (this device only).</div></span><b>${settings.haptic?'ON':'OFF'}</b></button>
+  <div class="stack"><button class="card" data-a="backup">Export a backup of everything</button>${readOnly?'':'<button class="card" data-a="restore">Restore from backup</button>'}
+  <button class="card" data-a="csvEvents">Export every recorded action (CSV)</button>${readOnly?'':'<button class="card" data-a="chpw">Change team password</button>'}<button class="card" data-a="help">How stats are counted</button>${backend==='firebase'?'<button class="card" data-a="teamlink">Show team link (share with coaches)</button><button class="card" data-a="teamleave">Leave this team on this device</button>':''}${readOnly?'':'<button class="card" data-a="demoadd">Testing: add 20 demo games</button><button class="card" data-a="demodel">Testing: remove demo games</button>'}</div>
+  <p class="mut">Last backup from this device: ${settings.lastBackup?new Date(settings.lastBackup).toLocaleString():'never'}</p>`;
+}
+
+/* ---- match view ---- */
+function matchView(){
+  const m=curMatch();if(!m){view='matches';return render()}
+  const tabs=[['live',readOnly?'Live score':'Live'],['stats','Stats'],['log','Log']];
+  let body=mview==='live'?(readOnly?liveRO(m):liveHTML(m)):mview==='stats'?matchStatsHTML(m):logHTML(m);
+  app.innerHTML=`<div class="wrap ${mview==='live'&&!readOnly?'live':''}"><header class="top"><button class="ic" data-a="home">‹</button><div class="ttl">vs ${esc(m.opp||'Opponent')}</div><span id="sv" class="sv"></span>${readOnly?'':'<button class="ic" data-a="mmenu">⋯</button>'}</header>
+  <nav class="nav">${tabs.map(t=>`<button data-a="mtab" data-v="${t[0]}" class="${mview===t[0]?'on':''}">${t[1]}</button>`).join('')}</nav>${body}</div>`;
+  setSave(saveStatus);
+  if(mview==='live'&&!readOnly)updateLive();
+}
+function scoreboardHTML(m,ro){
+  let c='';for(let s=1;s<=m.nsets;s++){const on=s===m.cur;c+=ro?`<button disabled class="${on?'on':''}">${s}</button>`:`<button data-a="gotoset" data-s="${s}" class="${on?'on':''}">${s}</button>`}
+  const sc=score(m.id,m.cur);
+  return`<div class="score">
+   <div class="side us"><div class="lbl">US</div><div class="num" id="sUs">${ro?sc.us:0}</div>${ro?'':'<button data-a="team" data-w="us">+1 opp error</button>'}</div>
+   <div class="mid"><div class="sl" id="setLbl">Set ${m.cur}${m.done?' ✓':''}</div><div class="chips" id="setChips">${c}</div>${ro?'':'<button class="ns" data-a="nextset">End set ›</button>'}</div>
+   <div class="side them"><div class="lbl">THEM</div><div class="num" id="sThem">${ro?sc.them:0}</div>${ro?'':'<button data-a="team" data-w="them">+1 them</button>'}</div></div>`;
+}
+function liveRO(m){
+  const evs=state.events.filter(v=>v.m===m.id).slice(-12).reverse();
+  const L=lineupOf(m,m.cur);
+  return`${scoreboardHTML(m,true)}<div class="lustrip">${stripHTML(m,true)}</div>${L?courtHTML(L,true):''}<div class="pad log"><div class="mut">${matchResult(m)}</div><p class="mut">Latest actions (updates live)</p>${evs.map(v=>`<div class="card" style="margin:4px 0;padding:10px"><span class="pill">S${v.s}</span> ${esc(evDesc(v))} ${v.pt?`<span class="pill ${v.pt}">${v.pt==='us'?'+1 us':'+1 them'}</span>`:''}</div>`).join('')||'<p class="mut">Nothing recorded yet.</p>'}</div>`;
+}
+/* ---- lineup / rotation ----
+   Court numbering (net at top): front row 4-3-2, back row 5-6-1; position 1 serves.
+   The live rotation is replayed from the set's starting lineup + the recorded events, so Undo / Log edits stay consistent:
+   we rotate when we win a rally the opponent served (side-out): 2→1→6→5→4→3→2.
+   The libero sits beside the court (not in a position) and is always selectable.
+   While we serve, each rally must start with the server's serve result (needServe). */
+const ORDER=[4,3,2,5,6,1];
+const rotF=a=>{a.push(a.shift())},rotB=a=>{a.unshift(a.pop())};
+function lineupOf(m,set){
+  const L=m.lu&&m.lu[set];if(!L||!L.pos||L.pos.length!==6)return null;
+  const pos=L.pos.slice();let serving=L.serve||'us',lib=L.lib||null,served=false;
+  for(const v of state.events){
+    if(v.m!==m.id||v.s!==set)continue;
+    if(v.k==='lu'){
+      if(v.r==='sub'){const i=pos.indexOf(v.o);if(i>=0)pos[i]=v.p}
+      else if(v.r==='rotf')rotF(pos);else if(v.r==='rotb')rotB(pos);
+      else if(v.r==='svus'){serving='us';served=false}else if(v.r==='svthem')serving='them';
+      else if(v.r==='lib')lib=v.p||null;
+      else if(v.r==='sknsv')served=true;
+      continue;
+    }
+    if(v.k==='srv')served=true;
+    if(v.pt==='us'){if(serving==='them')rotF(pos);serving='us';served=false}
+    else if(v.pt==='them'){serving='them';served=false}
+  }
+  return{pos,lib,serving,served,needServe:serving==='us'&&!served};
+}
+const needServe=()=>{const m=curMatch();const L=m&&lineupOf(m,m.cur);return L&&L.needServe?L:null};
+const chipInner=(pl,tag)=>`<i class="ps">${tag}</i><b>${esc(pl?pl.num:'?')}</b><small>${esc(pl?pl.name:'')}</small>`;
+function courtHTML(L,ro){
+  const cell=(id,tag,cls)=>{const pl=P(id),inner=chipInner(pl,tag);
+    return ro?`<div class="pl ro ${cls}">${inner}</div>`:`<button class="pl ${cls} ${id===sel?'on':''}" data-a="pl" data-id="${id}">${inner}</button>`};
+  return`<div id="players" class="court"><div class="netbar"></div><div class="cgrid ${L.lib?'hl':''}">${ORDER.map(p=>cell(L.pos[p-1],p,p===1&&L.serving==='us'?'srv':'')).join('')}${L.lib?cell(L.lib,'L','lib'):''}</div></div>`;
+}
+function playersBlock(m){
+  const L=lineupOf(m,m.cur);
+  if(L)return courtHTML(L,false);
+  const pls=sortedPlayers(m.pids.map(P).filter(Boolean));
+  return`<div class="players" id="players">${pls.map(p=>`<button class="pl ${p.id===sel?'on':''}" data-a="pl" data-id="${p.id}"><b>${esc(p.num)}</b><small>${esc(p.name||'')}</small></button>`).join('')||'<span class="mut">No players in this game — use ⋯ to edit.</span>'}</div>`;
+}
+function stripHTML(m,ro){
+  const L=lineupOf(m,m.cur);
+  if(!L)return`<span class="mut">No lineup for this set</span>${ro||m.pids.length<6?'':'<button data-a="luset">Set lineup</button>'}`;
+  const t=L.serving==='us'?(L.needServe?`🏐 Serving: ${esc(plabel(P(L.pos[0])))}`:'🏐 We serve · rally in play'):'Opponent serves · we rotate when we win it';
+  return`<span>${t}</span>${ro?'':'<button data-a="luman">Lineup · subs</button>'}`;
+}
+function evDesc(v,plain){
+  if(v.k==='lu'&&v.r==='sub')return'Sub: '+plabel(P(v.p))+' in for '+plabel(P(v.o));
+  if(v.k==='lu'&&v.r==='lib')return v.p?'Libero: '+plabel(P(v.p)):'Libero removed';
+  return(v.p?plabel(P(v.p))+' · ':'')+(LBL[v.k+'.'+v.r]||v.k);
+}
+let lu=null,lm={slot:null};
+const setModal=html=>{const d=$('modal');if(d)d.firstChild.innerHTML=html;else modal(html)};
+function luOpen(m,set,prefill){
+  const cur=m.lu&&m.lu[set];
+  const base=cur||prefill||null;
+  lu={set,pos:base&&base.pos?base.pos.slice():[null,null,null,null,null,null],lib:base?base.lib||null:null,
+      serve:cur?cur.serve:(m.lu&&m.lu[set-1]?(m.lu[set-1].serve==='us'?'them':'us'):'us'),slot:null};
+  const e=lu.pos.findIndex(x=>!x);lu.slot=e<0?(lu.lib?null:'L'):e;luRender();
+}
+function luRender(){
+  const m=curMatch(),used=new Set([...lu.pos,lu.lib].filter(Boolean));
+  const avail=sortedPlayers(m.pids.map(P).filter(p=>p&&!used.has(p.id)));
+  const full=lu.pos.every(Boolean),prev=m.lu&&m.lu[lu.set-1];
+  const slot=(i,tag)=>{const id=tag==='L'?lu.lib:lu.pos[i],pl=P(id);return`<button class="pl ${tag==='L'?'lib':''} ${lu.slot===(tag==='L'?'L':i)?'on':''}" data-a="luslot" data-p="${tag}"><i class="ps">${tag}</i>${pl?`<b>${esc(pl.num)}</b><small>${esc(pl.name)}</small>`:'<b>+</b>'}</button>`};
+  setModal(`<h3>Starting lineup · Set ${lu.set}</h3><p class="mut">Net at the top. Tap players to fill positions 1→6, then the libero (optional, kept beside the court).</p>
+  <div class="court"><div class="netbar"></div><div class="cgrid hl">${ORDER.map(p=>slot(p-1,p)).join('')}${slot(0,'L')}</div></div>
+  <div class="mut" style="margin-top:8px">Available</div><div class="chk">${avail.map(p=>`<button data-a="luput" data-id="${p.id}">${esc(plabel(p))}</button>`).join('')||'<span class="mut">—</span>'}</div>
+  <div class="mut" style="margin-top:10px">Who serves first?</div><div class="mrow"><button data-a="luserve" data-w="us" class="${lu.serve==='us'?'pri':''}">We serve</button><button data-a="luserve" data-w="them" class="${lu.serve==='them'?'pri':''}">They serve</button></div>
+  <div class="mrow">${prev&&prev.pos?'<button data-a="lusame">Same as last set</button>':''}<button data-a="luclear">Clear</button>${lu.lib?'<button data-a="lunolib">No libero</button>':''}</div>
+  <div class="mrow"><button data-a="mclose">Skip</button><button class="pri" data-a="lusave" ${full?'':'disabled'}>Start set</button></div>`);
+}
+function lmRender(){
+  const m=curMatch(),L=m&&lineupOf(m,m.cur);if(!L){closeModal();return}
+  const bench=sortedPlayers(m.pids.map(P).filter(p=>p&&!L.pos.includes(p.id)&&p.id!==L.lib));
+  const slot=(i,tag)=>{const id=tag==='L'?L.lib:L.pos[i],pl=P(id);return`<button class="pl ${tag==='L'?'lib':''} ${lm.slot===(tag==='L'?'L':i)?'on':''} ${tag===1&&L.serving==='us'?'srv':''}" data-a="lmslot" data-p="${tag}"><i class="ps">${tag}</i>${pl?`<b>${esc(pl.num)}</b><small>${esc(pl.name)}</small>`:'<b>+</b>'}</button>`};
+  const prompt=lm.slot==null?'To substitute: tap the court player going out, then the player coming in. Tap L to change the libero.':lm.slot==='L'?'Choose the libero:':'Coming in at position '+(lm.slot+1)+':';
+  setModal(`<h3>Lineup · Set ${m.cur}</h3><div class="court"><div class="netbar"></div><div class="cgrid hl">${ORDER.map(p=>slot(p-1,p)).join('')}${slot(0,'L')}</div></div>
+  <div class="mut" style="margin-top:8px">${prompt}</div>
+  <div class="chk">${bench.map(p=>`<button data-a="lmsub" data-id="${p.id}" ${lm.slot==null?'disabled':''}>${esc(plabel(p))}</button>`).join('')||'<span class="mut">No one on the bench</span>'}${lm.slot==='L'&&L.lib?'<button data-a="lmnolib">No libero</button>':''}</div>
+  <div class="mut" style="margin-top:12px">Fix a mistake</div>
+  <div class="mrow"><button data-a="lmrot" data-d="b">↺ Rotate back</button><button data-a="lmrot" data-d="f">↻ Rotate forward</button></div>
+  <div class="mrow"><button data-a="lmserve" data-w="us" class="${L.serving==='us'?'pri':''}">We serve</button><button data-a="lmserve" data-w="them" class="${L.serving==='them'?'pri':''}">They serve</button></div>
+  ${L.needServe?'<div class="mrow"><button data-a="lmskip">Skip this serve (don’t record a result)</button></div>':''}
+  <div class="mrow"><button data-a="luedit">Edit starting lineup</button><button class="pri" data-a="mclose">Done</button></div>`);
+}
+function liveHTML(m){
+  const pls=sortedPlayers(m.pids.map(P).filter(Boolean));
+  const L0=lineupOf(m,m.cur);
+  if(sel&&!(L0?(L0.pos.includes(sel)||sel===L0.lib):pls.some(p=>p.id===sel)))sel=null;
+  return`${scoreboardHTML(m,false)}
+   <div class="lustrip" id="luStrip">${stripHTML(m,false)}</div>${playersBlock(m)}
+   <div class="skills">${GROUPS.map(g=>`<div class="row" data-g="${g.k}"><div class="rl">${g.name}</div><div class="btns">${g.b.map(b=>`<button class="${b[3]}" data-a="act" data-k="${g.k}" data-r="${b[0]}">${b[1]}</button>`).join('')}</div></div>`).join('')}</div>
+   <div class="bar"><div class="bl"><div id="selTxt"></div><div id="lastTxt" class="mut"></div></div><button id="undoBtn" class="bad" data-a="undo">↶ Undo</button></div>`;
+}
+const mine=v=>v.c&&v.c.startsWith(DEV+'_');
+let lastTs=0;const nextTs=()=>(lastTs=Math.max(Date.now(),lastTs+1));
+function pushLU(ev){
+  const m=curMatch();
+  state.events.push(Object.assign({id:uid(),ts:nextTs(),m:m.id,s:m.cur,c:chunkFor(m.id),pt:''},ev,{k:'lu'}));
+  lastMsg=evDesc(state.events[state.events.length-1]);markDirty();updateLive();if($('modal'))lmRender();
+}
+function updateLive(){
+  const m=curMatch();if(!m||view!=='match'||mview!=='live'||!$('players'))return;
+  const sc=score(m.id,m.cur);
+  $('sUs').textContent=sc.us;$('sThem').textContent=sc.them;$('setLbl').textContent='Set '+m.cur+(m.done?' ✓':'');
+  let c='';for(let s=1;s<=m.nsets;s++)c+=`<button data-a="gotoset" data-s="${s}" class="${s===m.cur?'on':''}">${s}</button>`;
+  $('setChips').innerHTML=c;
+  const L=lineupOf(m,m.cur);
+  if(sel&&L&&!L.pos.includes(sel)&&sel!==L.lib)sel=null;
+  const need=!!(L&&L.needServe);
+  if(need)sel=L.pos[0];                       // we serve: the server is chosen for you
+  document.querySelector('.wrap').classList.toggle('needserve',need);
+  $('luStrip').innerHTML=stripHTML(m,false);
+  $('players').outerHTML=playersBlock(m);
+  $('selTxt').textContent=need?'Record the serve: '+plabel(P(sel)):sel?'Selected: '+plabel(P(sel)):'Tap a player first';
+  $('lastTxt').textContent=lastMsg||'No actions yet';
+  $('undoBtn').disabled=!state.events.some(v=>v.m===m.id&&mine(v));
+}
+function matchStatsHTML(m){
+  let opts='<option value="all">All sets</option>';for(let s=1;s<=m.nsets;s++){const sc=score(m.id,s);opts+=`<option value="${s}" ${String(statSet)===String(s)?'selected':''}>Set ${s} (${sc.us}–${sc.them})</option>`}
+  const evs=state.events.filter(v=>v.m===m.id&&(statSet==='all'||v.s===+statSet));
+  return`<div class="pad"><label>Show<select data-ch="statSet">${opts}</select></label>${statsHTML(evs)}<div class="mrow"><button data-a="csvStats" data-sc="match">Export stats CSV</button></div></div>`;
+}
+function logHTML(m){
+  const evs=state.events.filter(v=>v.m===m.id).slice().reverse();
+  if(!evs.length)return'<div class="pad mut">Nothing recorded yet.</div>';
+  return`<div class="pad log">${readOnly?'':'<p class="mut">Tap an entry to fix the player or delete it.</p>'}${evs.map(v=>`<button class="ev" ${readOnly?'':`data-a="evedit" data-id="${v.id}"`}><span class="pill">S${v.s}</span><span class="a">${v.p||v.k==='lu'?esc(evDesc(v)):'<b>Team</b> · '+esc(LBL[v.k+'.'+v.r]||v.k)}</span>${v.pt?`<span class="pill ${v.pt}">${v.pt==='us'?'+1 us':'+1 them'}</span>`:''}</button>`).join('')}</div>`;
+}
+
+/* ================= actions ================= */
+function buzz(){if(settings.haptic&&navigator.vibrate){try{navigator.vibrate(14)}catch(e){}}}
+function flash(el){if(!el)return;el.classList.remove('hit');void el.offsetWidth;el.classList.add('hit')}
+function chunkFor(mid){
+  for(let i=state.events.length-1;i>=0;i--){const v=state.events[i];if(v.m===mid&&mine(v)){let n=0;for(const x of state.events)if(x.c===v.c)n++;if(n<50)return v.c;break}}
+  return DEV+'_'+uid();
+}
+function addEvent(ev,btn){
+  if(readOnly)return;
+  const m=curMatch();
+  const v=Object.assign({id:uid(),ts:nextTs(),m:m.id,s:m.cur,c:chunkFor(m.id)},ev);
+  state.events.push(v);
+  const sc=score(m.id,m.cur);
+  lastMsg=(v.p?plabel(P(v.p))+' · ':'')+LBL[v.k+'.'+v.r]+'  →  '+sc.us+'–'+sc.them;
+  if(!settings.sticky)sel=null;
+  buzz();flash(btn);markDirty();updateLive();
+}
+function doAct(btn){
+  if(readOnly)return;
+  const k=btn.dataset.k,r=btn.dataset.r;
+  const ns=needServe();
+  if(ns&&k!=='srv'){lastMsg='⚠ Record the serve first — nothing recorded';updateLive();return}
+  if(!sel){const pl=$('players');if(pl){pl.classList.remove('shake');void pl.offsetWidth;pl.classList.add('shake')}lastMsg='⚠ Pick a player first — nothing recorded';updateLive();return}
+  const key=k+r+sel,now=Date.now();
+  if(key===lastKey&&now-lastT<300)return;
+  lastKey=key;lastT=now;
+  addEvent({p:sel,k,r,pt:DEF[k+'.'+r].pt},btn);
+}
+function doUndo(){
+  const m=curMatch();
+  for(let i=state.events.length-1;i>=0;i--){
+    const v=state.events[i];
+    if(v.m===m.id&&mine(v)){state.events.splice(i,1);m.cur=v.s;lastMsg='Undid: '+evDesc(v);lastKey='';buzz();markDirty();updateLive();return}
+  }
+}
+function matchForm(m){
+  const act=sortedPlayers(state.players.filter(p=>!p.arch||(m&&m.pids.includes(p.id))));
+  const evNames=[...new Set(state.matches.map(x=>x.ev).filter(Boolean))];
+  modal(`<h3>${m?'Edit game':'New game'}</h3>
+  <label>Game type<select id="fType">${TYPES.map(([k,l])=>`<option value="${k}" ${(m?m.type:'league')===k?'selected':''}>${l}</option>`).join('')}</select></label>
+  <label>Tournament / event name (optional — games with the same name are grouped)<input id="fEv" list="evl" value="${esc(m?m.ev:'')}" placeholder="e.g. Calgary Cup" autocomplete="off"><datalist id="evl">${evNames.map(n=>`<option value="${esc(n)}">`).join('')}</datalist></label>
+  <label>Opponent<input id="fOpp" value="${esc(m?m.opp:'')}" placeholder="Opponent team" autocomplete="off"></label>
+  <label>Date<input id="fDate" type="date" value="${m?m.date:today()}"></label><div class="mut">Players in this game</div>
+  <div class="chk">${act.map(p=>`<label class="cb"><input type="checkbox" value="${p.id}" ${(!m||m.pids.includes(p.id))?'checked':''}><span>${esc(plabel(p))}</span></label>`).join('')}</div>
+  <div class="mrow"><button data-a="mclose">Cancel</button><button class="pri" data-a="${m?'msave':'mcreate'}">${m?'Save':'Start game'}</button></div>`);
+}
+function formVals(){return{type:$('fType').value,ev:$('fEv').value.trim(),opp:$('fOpp').value.trim(),date:$('fDate').value||today(),pids:[...document.querySelectorAll('#modal .cb input:checked')].map(i=>i.value)}}
+function playerForm(p){
+  const used=state.events.some(v=>v.p===p.id);
+  modal(`<h3>Edit player</h3><label>Number<input id="eNum" value="${esc(p.num)}" inputmode="numeric" maxlength="3"></label><label>Name<input id="eName" value="${esc(p.name)}"></label>
+  <div class="mrow"><button data-a="mclose">Cancel</button><button class="pri" data-a="psave" data-id="${p.id}">Save</button></div>
+  <div class="mrow"><button class="bad" data-a="pdel" data-id="${p.id}">${used?'Remove from roster (keeps past stats)':'Delete player'}</button></div>`);
+}
+function parseBackup(t){const j=JSON.parse(t);const d=j&&j.data?j.data:j;if(!d||!Array.isArray(d.players)||!Array.isArray(d.matches)||!Array.isArray(d.events))throw new Error('bad');return d}
+function restoreModal(){
+  modal(`<h3>Restore backup</h3><p class="mut">This replaces the shared team data for everyone.</p><textarea id="rsTxt" placeholder="Paste backup here"></textarea>
+  <label>Or choose file<input id="rsFile" type="file" accept=".json,application/json,text/plain"></label><div id="rsErr" style="color:#ff8a8a;min-height:18px"></div>
+  <div class="mrow"><button data-a="mclose">Cancel</button><button class="pri" data-a="rsGo">Restore</button></div>`);
+  $('rsFile').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{$('rsTxt').value=r.result};r.readAsText(f)});
+}
+
+/* ---- demo data (Settings → Testing): made-up games from the current roster, tagged demo:true so they can be removed ---- */
+function genDemo(){
+  const R=Math.random,ri=(a,b)=>a+Math.floor(R()*(b-a+1)),pick=a=>a[Math.floor(R()*a.length)];
+  const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(R()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+  const wpick=(arr,wf)=>{const w=arr.map(wf);let x=R()*w.reduce((a,b)=>a+b,0);for(let i=0;i<arr.length;i++){x-=w[i];if(x<=0)return arr[i]}return arr[arr.length-1]};
+  const roster=state.players.filter(p=>!p.arch);
+  if(roster.length<7){info('Add at least 7 players to the roster first.');return 0}
+  const specs=shuffle([
+    ...Array.from({length:6},()=>({fmt:'p',type:pick(['practice','practice','scrimmage'])})),
+    ...Array.from({length:7},()=>({fmt:'b3',type:pick(['league','league','scrimmage'])})),
+    ...Array.from({length:7},()=>({fmt:'b5',type:pick(['league','tournament','tournament'])}))]);
+  const opps=shuffle(['Falcons','Hawks','Wolves','Storm','Thunder','Raptors','Vipers','Titans','Comets','Blaze','Rebels','Jets']);
+  const evNames=['Calgary Cup','Fall Classic'];const evDate={};
+  const out={matches:[],events:[]};
+  specs.forEach((sp,gi)=>{
+    const dt=new Date(Date.now()-(72-gi*3.4-ri(0,2))*864e5);
+    let date=new Date(dt.getTime()-dt.getTimezoneOffset()*6e4).toISOString().slice(0,10),ev='';
+    if(sp.type==='tournament'){ev=evNames[gi%2];if(evDate[ev])date=evDate[ev];else evDate[ev]=date}
+    const m={id:uid(),ts:Date.now()+gi,type:sp.type,ev,opp:opps[gi%opps.length],date,pids:shuffle(roster).slice(0,ri(8,roster.length)).map(p=>p.id),nsets:0,cur:1,done:true,lu:{},demo:true};
+    const wr=0.43+R()*0.17;let t=new Date(date+'T19:00:00').getTime();const evs=[];
+    const push=(e,s)=>{t+=ri(6,18)*1000;evs.push(Object.assign({id:uid(),ts:t,m:m.id,s,c:'demo'+gi+'_'+Math.floor(evs.length/300),pt:''},e))};
+    const simRally=(c)=>{
+      const{pos,lib,serving,s}=c,front=[pos[1],pos[2],pos[3]],back=[pos[4],pos[5],pos[0]];
+      const att=()=>wpick(pos,id=>front.includes(id)?3:1),oth=x=>pick(pos.filter(y=>y!==x)),back3=()=>lib&&R()<.4?lib:wpick(pos,id=>back.includes(id)?3:1);
+      const E=(p,k,r,pt)=>push({p,k,r,pt:pt||''},s);
+      if(serving==='us'){const sv=pos[0],x=R();if(x<.08){E(sv,'srv','ace','us');return'us'}if(x<.2){E(sv,'srv','err','them');return'them'}E(sv,'srv','in')}
+      else{const pr=back3(),x=R(),r=x<.3?'3':x<.7?'2':x<.9?'1':'0';if(r==='0'){E(pr,'rec','0','them');return'them'}E(pr,'rec',r)}
+      const win=R()<c.wr;
+      if(R()<.45)E(back3(),'oth','dig');
+      if(R()<.6){const a=att();E(oth(a),'oth','set');E(a,'att','swing')}
+      if(win){const x=R();
+        if(x<.62){const a=att();if(R()<.75)E(oth(a),'oth','set');E(a,'att','kill','us')}
+        else if(x<.75){const b=pick(front);if(R()<.35)E(pick(front.filter(y=>y!==b)),'blk','ast');E(b,'blk','stuff','us')}
+        else push({p:null,k:'team',r:'us',pt:'us'},s);
+        return'us'}
+      const x=R();
+      if(x<.25)E(att(),'att','err','them');else if(x<.30)E(pick(front),'blk','err','them');else if(x<.40)E(pick(pos),'oth','fault','them');
+      else push({p:null,k:'team',r:'them',pt:'them'},s);
+      return'them';
+    };
+    const simSet=(s,target,firstServe)=>{
+      const six=shuffle(m.pids).slice(0,6),rest=m.pids.filter(x=>!six.includes(x));
+      const lib=rest.length&&R()<.65?pick(rest):null;let bench=rest.filter(x=>x!==lib);
+      let serving=firstServe;m.lu[s]={pos:six.slice(),serve:serving,lib};
+      const pos=six.slice(),subAt=R()<.4?ri(6,30):-1;let us=0,them=0,n=0;
+      while(!((us>=target||them>=target)&&Math.abs(us-them)>=2)){
+        n++;
+        if(n===subAt&&bench.length){const i=ri(0,5),out_=pos[i],in_=pick(bench);pos[i]=in_;bench=bench.filter(x=>x!==in_).concat(out_);push({p:in_,o:out_,k:'lu',r:'sub'},s)}
+        const w=simRally({pos,lib,serving,s,wr:Math.min(.7,Math.max(.3,wr+(R()-.5)*.05))});
+        if(w==='us'){if(serving==='them')rotF(pos);serving='us';us++}else{serving='them';them++}
+      }
+      return{us,them,serve0:m.lu[s].serve};
+    };
+    let wins=0,loss=0,s=0,first=R()<.5?'us':'them';
+    const need=sp.fmt==='b3'?2:sp.fmt==='b5'?3:0;
+    if(sp.fmt==='p'){const sets=R()<.6?1:2,tg=sets===1?15:12;for(let i=0;i<sets;i++){s++;const r=simSet(s,tg,first);first=first==='us'?'them':'us'}}
+    else while(wins<need&&loss<need){s++;const tg=(sp.fmt==='b5'&&s===5)?15:25;const r=simSet(s,tg,s===5?(R()<.5?'us':'them'):first);if(r.us>r.them)wins++;else loss++;first=first==='us'?'them':'us'}
+    m.nsets=s;m.cur=s;out.matches.push(m);out.events.push(...evs);
+  });
+  state.matches.push(...out.matches);state.events.push(...out.events);sortEvents();markDirty();render();
+  return out.matches.length;
+}
+function removeDemo(){
+  const ids=new Set(state.matches.filter(m=>m.demo).map(m=>m.id));
+  state.matches=state.matches.filter(m=>!ids.has(m.id));state.events=state.events.filter(v=>!ids.has(v.m));
+  markDirty();render();return ids.size;
+}
+
+document.addEventListener('click',async e=>{
+  const t=e.target.closest('[data-a]');if(!t)return;
+  const a=t.dataset.a;
+  if(a==='pl'){e.preventDefault();const ns=needServe();if(ns&&t.dataset.id!==ns.pos[0]){lastMsg='⚠ Record the serve first';updateLive();return}sel=t.dataset.id;lastKey='';buzz();updateLive();return}
+  if(a==='act'){doAct(t);return}
+  if(a==='undo'){doUndo();return}
+  try{
+  switch(a){
+    case'mclose':closeModal();break;
+    case'teamnew':joinTeam(b64url(crypto.getRandomValues(new Uint8Array(24))));break;
+    case'teamlink':showExport('Team link — share it with your coaches','',location.origin+location.pathname+'#t='+teamId,'text/plain');break;
+    case'teamleave':confirmBox('Leave this team on this device? The data stays in the shared database; you can rejoin with the team link.','Leave team',()=>{try{localStorage.removeItem('vbs.team')}catch(e){}ssDel('vbs.k');ssDel(SNAP);history.replaceState(null,'',location.pathname);location.reload()},true);break;
+    case'demoadd':confirmBox('Add 20 made-up games (short practice games, best-of-3 and best-of-5) using your current roster? They’re tagged as demo and can be removed from Settings. They are shared with everyone using the tracker.','Add demo games',()=>{const n=genDemo();if(n)info('Added '+n+' demo games. Open the Games or Stats tab.')});break;
+    case'demodel':{const n=state.matches.filter(m=>m.demo).length;if(!n){info('There are no demo games to remove.');break}confirmBox('Remove the '+n+' demo games and all their stats? Your real games are not touched.','Remove demo games',()=>{info('Removed '+removeDemo()+' demo games.')},true);break}
+    case'luset':case'luedit':{const m=curMatch();luOpen(m,m.cur);break}
+    case'luslot':{const i=t.dataset.p==='L'?'L':+t.dataset.p-1;lu.slot=lu.slot===i?null:i;luRender();break}
+    case'luput':{const id=t.dataset.id;let i=lu.slot;if(i==null)i=lu.pos.findIndex(x=>!x);if(i==null||i<0)break;
+      if(i==='L')lu.lib=id;else lu.pos[i]=id;
+      const n=lu.pos.findIndex(x=>!x);lu.slot=n>=0?n:(lu.lib?null:'L');luRender();break}
+    case'luclear':lu.pos=[null,null,null,null,null,null];lu.lib=null;lu.slot=0;luRender();break;
+    case'lunolib':lu.lib=null;lu.slot=null;luRender();break;
+    case'luserve':lu.serve=t.dataset.w;luRender();break;
+    case'lusame':{const m=curMatch(),pv=m.lu&&m.lu[lu.set-1];if(pv){lu.pos=pv.pos.slice();lu.lib=pv.lib||null;lu.slot=null}luRender();break}
+    case'lusave':{const m=curMatch();m.lu=Object.assign({},m.lu||{});m.lu[lu.set]={pos:lu.pos.slice(),serve:lu.serve,lib:lu.lib||null};markDirty();closeModal();sel=null;lastKey='';updateLive();break}
+    case'luman':lm={slot:null};lmRender();break;
+    case'lmslot':{const i=t.dataset.p==='L'?'L':+t.dataset.p-1;lm.slot=lm.slot===i?null:i;lmRender();break}
+    case'lmsub':{const m=curMatch(),L=lineupOf(m,m.cur);
+      if(lm.slot==='L'){lm.slot=null;pushLU({r:'lib',p:t.dataset.id});break}
+      const out=L.pos[lm.slot];lm.slot=null;if(sel===out)sel=null;pushLU({r:'sub',p:t.dataset.id,o:out});break}
+    case'lmnolib':lm.slot=null;pushLU({r:'lib',p:null});break;
+    case'lmskip':pushLU({r:'sknsv'});break;
+    case'lmrot':pushLU({r:t.dataset.d==='f'?'rotf':'rotb'});break;
+    case'lmserve':pushLU({r:t.dataset.w==='us'?'svus':'svthem'});break;
+    case'mok':{const f=pending;pending=null;closeModal();if(f)f();break}
+    case'nav':view=t.dataset.v;render();break;
+    case'mfilter':mFilter=t.dataset.k;render();break;
+    case'home':view='matches';curId=null;sel=null;render();break;
+    case'open':curId=t.dataset.id;view='match';mview='live';sel=null;lastMsg='';statSet='all';render();break;
+    case'mtab':mview=t.dataset.v;render();break;
+    case'lock':lock();break;
+    case'sort':{const k=t.dataset.key;if(sortKey===k)sortDir=-sortDir;else{sortKey=k;sortDir=1}render();break}
+    case'tgl':settings[t.dataset.k]=!settings[t.dataset.k];saveSettings();render();break;
+    case'newmatch':if(!state.players.some(p=>!p.arch)){info('Add your players in the Roster tab first.');break}matchForm(null);break;
+    case'mcreate':{const v=formVals();if(!v.pids.length){info('Pick at least one player.');break}const m={id:uid(),ts:Date.now(),type:v.type,ev:v.ev,opp:v.opp||'Opponent',date:v.date,pids:v.pids,nsets:1,cur:1,done:false};state.matches.push(m);markDirty();closeModal();curId=m.id;view='match';mview='live';sel=null;lastMsg='';render();if(m.pids.length>=6)luOpen(m,1);break}
+    case'msave':{const v=formVals(),m=curMatch();Object.assign(m,{type:v.type,ev:v.ev,opp:v.opp||'Opponent',date:v.date,pids:v.pids});markDirty();closeModal();render();break}
+    case'mmenu':{const m=curMatch();modal(`<h3>Game</h3><div class="stack"><button data-a="medit">Edit type / tournament / opponent / date / players</button><button data-a="mdone">${m.done?'Re-open game (mark in progress)':'Mark game finished'}</button><button data-a="csvStats" data-sc="match">Export stats CSV</button><button data-a="mdel" style="color:#ff8a8a">Delete this game</button><button data-a="mclose">Close</button></div>`);break}
+    case'medit':matchForm(curMatch());break;
+    case'mdone':{const m=curMatch();m.done=!m.done;markDirty();closeModal();render();break}
+    case'mdel':confirmBox('Delete this game and all its recorded stats for everyone? This cannot be undone.','Delete',()=>{const id=curId;state.events=state.events.filter(v=>v.m!==id);state.matches=state.matches.filter(m=>m.id!==id);curId=null;view='matches';markDirty();render()},true);break;
+    case'team':{if(readOnly)break;if(needServe()){lastMsg='⚠ Record the serve first — nothing recorded';updateLive();break}const w=t.dataset.w,now=Date.now(),key='team'+w;if(key===lastKey&&now-lastT<300)break;lastKey=key;lastT=now;addEvent({p:null,k:'team',r:w,pt:w},t);break}
+    case'gotoset':{if(readOnly)break;const m=curMatch();m.cur=+t.dataset.s;markDirty();updateLive();break}
+    case'nextset':{const m=curMatch();if(m.cur<m.nsets){m.cur++;markDirty();updateLive();break}const sc=score(m.id,m.cur);modal(`<h3>End set ${m.cur}</h3><p>Final score for this set: <b>${sc.us}–${sc.them}</b></p><div class="stack"><button class="pri" data-a="nsgo">Start set ${m.cur+1}</button><button data-a="nsfin">End the game here (set ${m.cur} was the last)</button><button data-a="mclose">Cancel</button></div>`);break}
+    case'nsgo':{const m=curMatch();closeModal();m.nsets++;m.cur=m.nsets;m.done=false;sel=null;markDirty();updateLive();if(m.pids.length>=6){const pv=m.lu&&m.lu[m.cur-1];luOpen(m,m.cur,pv)}break}
+    case'nsfin':{const m=curMatch();closeModal();m.done=true;sel=null;markDirty();mview='stats';statSet='all';render();break}
+    case'evedit':{const v=state.events.find(x=>x.id===t.dataset.id);if(!v)break;const m=curMatch();const pls=sortedPlayers(m.pids.map(P).filter(Boolean));
+      modal(`<h3>${esc(LBL[v.k+'.'+v.r])}</h3><p class="mut">${v.k==='lu'?esc(evDesc(v)):'Currently: '+(v.p?esc(plabel(P(v.p))):'Team')} · Set ${v.s}</p>${v.p&&v.k!=='lu'?`<div class="mut">Reassign to:</div><div class="chk">${pls.map(p=>`<button data-a="evpl" data-id="${v.id}" data-p="${p.id}" class="${p.id===v.p?'pri':''}">${esc(plabel(p))}</button>`).join('')}</div>`:''}<div class="mrow"><button data-a="mclose">Cancel</button><button class="bad" data-a="evdel" data-id="${v.id}">Delete entry</button></div>`);break}
+    case'evpl':{const v=state.events.find(x=>x.id===t.dataset.id);v.p=t.dataset.p;markDirty();closeModal();render();break}
+    case'evdel':{state.events=state.events.filter(x=>x.id!==t.dataset.id);markDirty();closeModal();render();break}
+    case'pquick':{const have=new Set(state.players.filter(p=>!p.arch).map(p=>String(p.num)));for(let i=1;i<=12;i++)if(!have.has(String(i)))state.players.push({id:uid(),num:String(i),name:''});markDirty();render();break}
+    case'pedit':playerForm(P(t.dataset.id));break;
+    case'psave':{const p=P(t.dataset.id);const n=$('eNum').value.trim();if(!n)break;p.num=n;p.name=$('eName').value.trim();markDirty();closeModal();render();break}
+    case'pdel':{const id=t.dataset.id,p=P(id),used=state.events.some(v=>v.p===id);closeModal();if(used)p.arch=true;else{state.players=state.players.filter(x=>x.id!==id);state.matches.forEach(m=>{m.pids=m.pids.filter(x=>x!==id)})}markDirty();render();break}
+    case'csvStats':{const sc=t.dataset.sc;let evs;if(sc==='match'){const m=curMatch();evs=state.events.filter(v=>v.m===m.id&&(statSet==='all'||v.s===+statSet));closeModal();showExport('Stats CSV','stats-'+m.date+'.csv',statsCSV(evs),'text/csv')}else{const ids=filterIds(statFilter);evs=state.events.filter(v=>!ids||ids.has(v.m));showExport('Stats CSV','stats.csv',statsCSV(evs),'text/csv')}break}
+    case'csvEvents':showExport('All actions CSV','actions.csv',eventsCSV(state.events),'text/csv');break;
+    case'backup':{e.preventDefault();settings.lastBackup=Date.now();saveSettings();showExport('Backup (keep somewhere safe — not encrypted)','volleyball-backup-'+today()+'.json',JSON.stringify({app:'vbs',exported:new Date().toISOString(),data:state}),'application/json');break}
+    case'excopy':{const ta=$('exTxt');ta.select();let ok=false;try{ok=await navigator.clipboard.writeText(ta.value).then(()=>true)}catch(err){try{ok=document.execCommand('copy')}catch(e2){}}$('exMsg').textContent=ok?'Copied ✓':'Copy blocked — long-press the text box, Select all, Copy.';break}
+    case'exdl':{try{await downloadsCap.save({filename:exportData.filename,data:new Blob([exportData.text],{type:exportData.mime})});$('exMsg').textContent='Saved ✓'}catch(err){$('exMsg').textContent='Save cancelled or blocked — use Copy.'}break}
+    case'restore':restoreModal();break;
+    case'rsGo':{try{const d=parseBackup($('rsTxt').value);closeModal();confirmBox('Replace ALL shared team data (for everyone) with this backup?','Replace',()=>{
+      d.events.forEach(v=>{if(!v.c)v.c='imp_'+v.m});
+      state={players:d.players,matches:d.matches.map(m=>Object.assign({type:'league',ev:'',done:false},m)),events:d.events};sortEvents();markDirty();view='matches';render()},true)}catch(err){$('rsErr').textContent='That does not look like a valid backup.'}break}
+    case'chpw':modal(`<h3>Change team password</h3><p class="mut">Takes effect for the next person who unlocks. People already unlocked stay unlocked until they close the page.</p><label>Current password<input id="op" type="password" autocomplete="current-password"></label><label>New password (6+)<input id="np" type="password" autocomplete="new-password"></label><div id="cpErr" style="color:#ff8a8a;min-height:18px"></div><div class="mrow"><button data-a="mclose">Cancel</button><button class="pri" data-a="chgo">Change</button></div>`);break;
+    case'chgo':{const o=$('op').value,n=$('np').value;if(n.length<6){$('cpErr').textContent='New password needs 6+ characters.';break}const r=await unwrap(o);if(!r){$('cpErr').textContent='Current password is wrong.';break}try{await writeMeta(n,r.Kr,raw.meta.chk);closeModal();info('Password changed.')}catch(err){$('cpErr').textContent='Could not save: '+(err&&err.message||err)}break}
+    case'forgot':e.preventDefault();confirmBox('Passwords cannot be recovered. You can wipe ALL team data and start over. Anyone with a backup can restore it afterwards.','Wipe & start over',async()=>{try{for(const id of Object.keys(raw))await col.doc(id).delete();raw={};synced={};KEY=null;loaded=false;ssDel('vbs.k');ssDel(SNAP);view='setup';render()}catch(err){info('Could not wipe: '+esc(err&&err.message||err))}},true);break;
+    case'help':modal(`<h3>How stats are counted</h3><p><b>Pick a player once</b> — they stay selected. Every button then records for that player and updates the score.</p><p><b>Point to us:</b> serve Ace, attack Kill, block Stuff, and “+1 opp error”.<br><b>Point to them:</b> serve Error, pass 0, attack Error, block Error, Fault, and “+1 them”.</p><p><b>Swing</b> = an attack that was neither a kill nor an error. <b>Pass</b> uses 3 (perfect) to 0 (aced/error). <b>Blk ast</b> gives credit without a point — tap Blk ast for the second blocker <i>first</i>, then Stuff for the blocker who gets the point (the point ends the rally, and the next tap must be the serve). <b>Fault</b> covers net, lift, rotation and dig/set errors.</p><p><b>Lineup &amp; rotation:</b> positions are numbered 1–6 with the net at the top (front row 4-3-2, back row 5-6-1; position 1 serves). We rotate automatically each time we win a rally the opponent served. The <b>libero</b> sits beside the court and is always selectable — no on/off tracking. Use <b>Lineup · subs</b> to substitute, change the libero, or correct the rotation / who is serving.</p><p><b>When we serve</b>, the server is selected for you and the rest of the screen is locked until you record the serve result (Ace / In / Error). If a serve genuinely wasn’t played, use <b>Lineup · subs → Skip this serve</b>.</p><p>Wrong player or button? <b>Undo</b> removes your last tap; the <b>Log</b> tab can reassign or delete any entry. Two identical taps within 0.3 s count once.</p><div class="mrow"><button class="pri" data-a="mclose">Got it</button></div>`);break;
+  }
+  }catch(err){console.error(err);setSave('err')}
+});
+document.addEventListener('change',e=>{
+  const c=e.target.dataset&&e.target.dataset.ch;if(!c)return;
+  if(c==='statFilter')statFilter=e.target.value;if(c==='statSet')statSet=e.target.value;render();
+});
+document.addEventListener('submit',async e=>{
+  e.preventDefault();const id=e.target.id;
+  try{
+  if(id==='fSetup'){const a=$('pw1').value,b=$('pw2').value;if(a.length<6)return $('err').textContent='Use at least 6 characters.';if(a!==b)return $('err').textContent='Passwords do not match.';
+    try{await setupNew(a)}catch(err){return $('err').textContent=(err&&err.code==='invalid_argument')?'You only have view access, so you can’t create the team.':'Could not save: '+(err&&err.message||err)}
+    await enter()}
+  else if(id==='fLock'){const btn=e.target.querySelector('button');btn.disabled=true;const ok=await unlock($('pw').value);if(ok){view='matches';render()}else{btn.disabled=false;$('err').textContent='Wrong password.';$('pw').value='';$('pw').focus()}}
+  else if(id==='fTeam'){const v=$('tCode').value.trim();const m=/t=([A-Za-z0-9_-]{22,})/.exec(v)||/^([A-Za-z0-9_-]{22,})$/.exec(v);if(!m)return $('err').textContent='That doesn’t look like a team link or code.';joinTeam(m[1])}
+  else if(id==='fPlayer'){const n=$('pNum').value.trim();if(!n)return;if(state.players.some(p=>!p.arch&&String(p.num)===n))return info('Number #'+esc(n)+' is already on the roster.');state.players.push({id:uid(),num:n,name:$('pName').value.trim()});markDirty();render();setTimeout(()=>{const f=$('pNum');if(f)f.focus()},30)}
+  }catch(err){console.error(err);if($('err'))$('err').textContent='Something went wrong: '+err.message}
+});
+if(!inClaude&&'serviceWorker' in navigator&&location.protocol.startsWith('http')){navigator.serviceWorker.register('sw.js').catch(()=>{})}
+if(!window.crypto||!crypto.subtle){app.innerHTML='<div class="center"><h2>Unsupported browser</h2><p>This app needs a modern browser over HTTPS.</p></div>'}else boot();
+</script>
+</body>
+</html>

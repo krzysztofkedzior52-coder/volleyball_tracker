@@ -1,0 +1,15 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Everything lives under /teams/{teamId}/d/{doc}. The teamId is a long random string that only
+    // appears in the private team link, and every document is encrypted in the browser with the team
+    // password, so the database only ever holds ciphertext. There is no way to list /teams itself.
+    match /teams/{team}/d/{doc} {
+      allow read:   if team.size() >= 22;
+      allow create, update: if team.size() >= 22
+                            && request.resource.data.keys().hasOnly(['e', 'salt', 'wrap', 'chk'])
+                            && request.resource.size() < 900000;
+      allow delete: if team.size() >= 22;
+    }
+  }
+}
