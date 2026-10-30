@@ -8,10 +8,10 @@
 //
 //   window.VBS_CONFIG = {
 //     firebase: {
-//       apiKey: "AIza...",
-//       authDomain: "your-project.firebaseapp.com",
-//       projectId: "your-project",
-//       appId: "1:123456789:web:abcdef"
+//       apiKey: "AIzaSyCL-z5vL3c1cExa3S9QK5cwK2LkNr9fpyA",
+//       authDomain: "volleyball-tracker-3720d.firebaseapp.com",
+//       projectId: "volleyball-tracker-3720d",
+//       appId: "1:96419973783:web:4acca77bfe460257ecf7d2"
 //     }
 //   };
 //
