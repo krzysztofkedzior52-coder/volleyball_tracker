@@ -114,6 +114,15 @@ table.st{border-collapse:separate;border-spacing:0;font-size:14px;min-width:100%
 .mrow{display:flex;gap:8px;margin-top:12px}.mrow button{flex:1}
 .chk{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px}
 .cb{display:flex;align-items:center;gap:8px;margin:0;background:#0b121a;border:1px solid var(--line);border-radius:10px;padding:10px;color:var(--text)}.cb input{width:22px;height:22px;min-height:0;margin:0}
+.prow{display:flex;align-items:center;gap:8px;margin:5px 0;background:#0b121a;border:1px solid var(--line);border-radius:10px;padding:4px 8px 4px 10px}
+.prow label{flex:1;display:flex;align-items:center;gap:10px;margin:0;min-height:44px;color:var(--text);font-size:16px}.prow label input{width:22px;height:22px;min-height:0;margin:0;flex:none}
+.prow select{width:84px;min-height:40px;padding:6px;margin:0;flex:none}
+.rl2{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.3px;color:#cfe0ff;background:#24405f;border-radius:6px;padding:2px 6px;margin-left:6px;vertical-align:middle}
+.lp{display:inline-block;margin:2px 10px 2px 0;white-space:nowrap}.lp b{font-size:17px}.lp i{font-style:normal;font-size:11px;font-weight:800;color:#9cc2ff;margin-left:3px}
+.kv{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}.kv div{background:#0b121a;border-radius:8px;padding:6px 4px;text-align:center}.kv b{display:block;font-size:18px}.kv small{color:var(--mut);font-size:11px}
+.st.pr td:nth-child(1),.st.pr th:nth-child(1){width:auto;min-width:112px;white-space:normal;text-align:left;border-right:1px solid var(--line)}.st.pr td:nth-child(2),.st.pr th:nth-child(2){position:static;border-right:0;text-align:right}
+.st.pr th{cursor:default}
+.pos{color:#4ade80}.neg{color:#ff8a8a}
 .stack button{display:block;width:100%;margin:6px 0;text-align:left;padding:12px}
 .center{max-width:420px;margin:12vh auto 0;padding:16px}
 .tgl{display:flex;justify-content:space-between;align-items:center;width:100%;text-align:left;margin:6px 0}
@@ -149,7 +158,7 @@ if(!DEV){DEV='d'+Math.random().toString(36).slice(2,7);try{localStorage.setItem(
 let state=defState(),KEY=null,view='boot',mview='live',curId=null,sel=null,loaded=false;
 let db=null,col=null,user=null,downloadsCap=null,readOnly=false;
 let raw={},synced={};
-let lastKey='',lastT=0,lastMsg='',sortKey='num',sortDir=1,statSet='all',statFilter='all',mFilter='all',saveStatus='ok',pending=null,exportData=null;
+let lastKey='',lastT=0,lastMsg='',sortKey='num',sortDir=1,statSet='all',statFilter='all',mFilter='all',statMode='players',lnSel=null,lnSort='r',lnMin=5,pairA='',pairRole='',saveStatus='ok',pending=null,exportData=null;
 function defState(){return{players:[],matches:[],events:[]}}
 const TYPES=[['league','League'],['tournament','Tournament'],['scrimmage','Scrimmage'],['practice','Practice'],['other','Other']];
 const TYPE_LBL=Object.fromEntries(TYPES);
@@ -196,7 +205,7 @@ const SNAP='vbs.snap';let snapTimer=null,ssOK=true,needReconcile=false,pendingN=
 function saveSnap(){
   clearTimeout(snapTimer);
   if(!KEY||!loaded)return;
-  try{sessionStorage.setItem(SNAP,JSON.stringify({v:1,state,sync:synced,meta:raw.meta||null,ro:readOnly,team:teamId||'',nav:{view,curId,mview,sel,mFilter,statFilter}}));ssOK=true}catch(e){ssOK=false}
+  try{sessionStorage.setItem(SNAP,JSON.stringify({v:1,state,sync:synced,meta:raw.meta||null,ro:readOnly,team:teamId||'',nav:{view,curId,mview,sel,mFilter,statFilter,statMode,pairA,pairRole,lnSort,lnMin}}));ssOK=true}catch(e){ssOK=false}
 }
 const saveSnapSoon=()=>{clearTimeout(snapTimer);snapTimer=setTimeout(saveSnap,150)};
 function loadSnap(){try{const s=JSON.parse(sessionStorage.getItem(SNAP)||'null');return s&&s.v===1&&s.meta?s:null}catch(e){return null}}
@@ -383,6 +392,7 @@ async function boot(){
       KEY=K;state=Object.assign(defState(),snap.state);synced=snap.sync||{};raw.meta=snap.meta;readOnly=!!snap.ro;loaded=true;needReconcile=true;
       const n=snap.nav||{};view=['matches','roster','stats','settings','match'].includes(n.view)?n.view:'matches';
       curId=n.curId||null;mview=n.mview||'live';sel=n.sel||null;mFilter=n.mFilter||'all';statFilter=n.statFilter||'all';
+      statMode=['players','lineups','pairs'].includes(n.statMode)?n.statMode:'players';pairA=n.pairA||'';pairRole=n.pairRole||'';lnSort=n.lnSort||'r';lnMin=n.lnMin||5;
       if(view==='match'&&!curMatch())view='matches';
       render();
       (async()=>{while(!await connectDB())await new Promise(r=>setTimeout(r,5000));await subscribe();markDirty();refreshUI()})();
@@ -466,27 +476,114 @@ function statsCSV(evs){
 function eventsCSV(evs){
   const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
   const mm=id=>state.matches.find(x=>x.id===id)||{};
-  return'date,type,event,opponent,set,time,player,action,point_to\n'+evs.map(v=>{const m=mm(v.m);return[m.date,TYPE_LBL[m.type]||'',m.ev||'',m.opp,v.s,new Date(v.ts).toISOString(),v.p&&v.k!=='lu'?plabel(P(v.p)):'',evDesc(v,true),v.pt||''].map(q).join(',')}).join('\n');
+  return'date,type,event,opponent,set,time,player,position,action,point_to\n'+evs.map(v=>{const m=mm(v.m);return[m.date,TYPE_LBL[m.type]||'',m.ev||'',m.opp,v.s,new Date(v.ts).toISOString(),v.p&&v.k!=='lu'?plabel(P(v.p)):'',v.p&&v.k!=='lu'?roleIn(m,v.p):'',evDesc(v,true),v.pt||''].map(q).join(',')}).join('\n');
 }
 // filter encoding: all | t:<type> | e:<event name> | m:<match id>
+const nopp=s=>String(s||'').trim().toLowerCase();
 function filterOptions(){
   const ms=state.matches.slice().sort((a,b)=>b.date.localeCompare(a.date));
   const types=TYPES.filter(([k])=>ms.some(m=>m.type===k));
   const evs=[...new Set(ms.map(m=>m.ev).filter(Boolean))];
-  return{ms,types,evs};
+  const om={};ms.forEach(m=>{const k=nopp(m.opp);if(k)(om[k]||(om[k]={name:m.opp.trim(),n:0})).n++});
+  const opps=Object.values(om).sort((a,b)=>a.name.localeCompare(b.name));
+  return{ms,types,evs,opps};
 }
 function filterIds(f){
   if(f==='all')return null;
   const t=f.slice(0,2),v=f.slice(2);
-  return new Set(state.matches.filter(m=>t==='t:'?m.type===v:t==='e:'?m.ev===v:m.id===v).map(m=>m.id));
+  return new Set(state.matches.filter(m=>t==='t:'?m.type===v:t==='e:'?m.ev===v:t==='o:'?nopp(m.opp)===nopp(v):m.id===v).map(m=>m.id));
 }
 function filterSelect(){
-  const{ms,types,evs}=filterOptions();
+  const{ms,types,evs,opps}=filterOptions();
   const o=(v,l)=>`<option value="${esc(v)}" ${statFilter===v?'selected':''}>${esc(l)}</option>`;
   return`<label>Show stats for<select data-ch="statFilter">${o('all','All games (season)')}
   ${types.length?'<optgroup label="By type">'+types.map(([k,l])=>o('t:'+k,'All '+l.toLowerCase()+' games')).join('')+'</optgroup>':''}
   ${evs.length?'<optgroup label="By tournament / event">'+evs.map(e=>o('e:'+e,e)).join('')+'</optgroup>':''}
+  ${opps.length?'<optgroup label="By opponent">'+opps.map(x=>o('o:'+x.name,'vs '+x.name+' ('+x.n+(x.n===1?' game)':' games)'))).join('')+'</optgroup>':''}
   <optgroup label="Single game">${ms.map(m=>o('m:'+m.id,m.date+' vs '+m.opp+' ('+TYPE_LBL[m.type]+')')).join('')}</optgroup></select></label>`;
+}
+
+/* ================= positions, lineups and combinations =================
+   Position (role) is chosen per player per game (m.pos[playerId]); a player's default sits on the player (p.pos).
+   Lineup / pair stats come from replaying every set from its starting lineup, so each recorded action is tagged with
+   who was on court (the six + libero) and who was serving at that moment. That is "on court together", NOT "this setter
+   set this hitter" - the app does not record who set which attack. */
+const ROLES=[['OH','Outside hitter'],['OP','Opposite'],['MB','Middle blocker'],['ST','Setter'],['LB','Libero']];
+const roleIn=(m,id)=>(m&&m.pos&&m.pos[id])||(P(id)&&P(id).pos)||'';
+function lastRole(id){let best=null;for(const m of state.matches)if(m.pos&&m.pos[id]&&(!best||m.ts>best.ts))best=m;return best?best.pos[id]:''}
+function ctxAll(ids){
+  const out=[],by={};
+  for(const v of state.events){if(ids&&!ids.has(v.m))continue;(by[v.m]||(by[v.m]=[])).push(v)}
+  for(const m of state.matches){
+    const evs=by[m.id];if(!evs||(ids&&!ids.has(m.id)))continue;
+    for(let s=1;s<=m.nsets;s++)replayLU(m,s,evs,(v,pos,lib,srv)=>out.push({v,m,pos:pos.slice(),lib,srv}));
+  }
+  return out;
+}
+function teamSum(recs){
+  const t={r:0,pf:0,pa:0,sow:0,son:0,spw:0,spn:0};
+  for(const c of recs){
+    const pt=c.v.pt;if(pt!=='us'&&pt!=='them')continue;
+    const w=pt==='us';t.r++;if(w)t.pf++;else t.pa++;
+    if(c.srv==='us'){t.spn++;if(w)t.spw++}else{t.son++;if(w)t.sow++}
+  }
+  return t;
+}
+function teamTot(evs){const S=calc(evs),T=fresh();for(const id in S)for(const k in T)T[k]+=S[id][k];return fin(T)}
+const pct=(a,b)=>b?Math.round(100*a/b)+'%':'–';
+const sgn=n=>n>0?'+'+n:String(n);
+const byNum=(a,b)=>{const pa=P(a),pb=P(b);return numVal(pa&&pa.num)-numVal(pb&&pb.num)};
+const lkey=pos=>pos.slice().sort().join(',');
+function lineupLabel(ids,m){return ids.slice().sort(byNum).map(id=>{const p=P(id),r=roleIn(m,id);return`<span class="lp"><b>${esc(p?p.num:'?')}</b>${r?`<i>${r}</i>`:''}</span>`}).join('')}
+function lineupsHTML(ids){
+  const recs=ctxAll(ids);
+  if(!recs.length)return'<div class="card mut">No lineup data for these games. Lineups come from the starting lineup chosen at the start of each set — sets recorded without one are not included.</div>';
+  const G={};
+  for(const c of recs){const k=lkey(c.pos);(G[k]||(G[k]={k,ids:c.pos.slice(),m:c.m,recs:[]})).recs.push(c)}
+  for(const g of Object.values(G)){g.t=teamSum(g.recs);g.T=teamTot(g.recs.map(c=>c.v))}
+  const sum=g=>{const t=g.t,T=g.T;return`<div class="kv"><div><b>${t.r}</b><small>Rallies</small></div><div><b>${t.pf}–${t.pa}</b><small>Points</small></div><div><b class="${t.pf-t.pa>0?'pos':t.pf-t.pa<0?'neg':''}">${sgn(t.pf-t.pa)}</b><small>+/−</small></div>
+   <div><b>${pct(t.sow,t.son)}</b><small>Side-out (${t.son})</small></div><div><b>${pct(t.spw,t.spn)}</b><small>Serve pts (${t.spn})</small></div><div><b>${fmtHit(T.hit)}</b><small>Hit% (${T.ta} att)</small></div></div>`};
+  if(lnSel&&G[lnSel]){
+    const g=G[lnSel];
+    return`<button data-a="lnback" style="margin-top:8px">‹ All lineups</button><div class="card">${lineupLabel(g.ids,g.m)}${sum(g)}<div class="mut" style="margin-top:8px">Team pass avg ${g.T.rec==null?'–':g.T.rec.toFixed(2)} (${g.T.rn}) · aces ${g.T.ace} · serve errors ${g.T.se} · kills ${g.T.k} · block pts ${g.T.bs}</div></div>
+     ${statsHTML(g.recs.map(c=>c.v))}<p class="mut">Only actions while exactly this six was on court (the libero and anyone else involved are included in the rows).</p>`;
+  }
+  const keyf={r:g=>g.t.r,pm:g=>g.t.pf-g.t.pa,so:g=>g.t.son?g.t.sow/g.t.son:-1,hit:g=>g.T.hit==null?-9:g.T.hit};
+  const all=Object.values(G),list=all.filter(g=>g.t.r>=lnMin).sort((a,b)=>keyf[lnSort](b)-keyf[lnSort](a)||b.t.r-a.t.r);
+  const opt=(cur,v,l)=>`<option value="${v}" ${String(cur)===String(v)?'selected':''}>${l}</option>`;
+  return`<div style="display:flex;gap:8px"><label style="flex:1">Sort by<select data-ch="lnSort">${opt(lnSort,'r','Rallies played')}${opt(lnSort,'pm','Point difference')}${opt(lnSort,'so','Side-out %')}${opt(lnSort,'hit','Team hit %')}</select></label>
+   <label style="flex:1">Min. rallies<select data-ch="lnMin">${[1,5,10,20,40].map(n=>opt(lnMin,n,n)).join('')}</select></label></div>
+   ${list.map(g=>`<button class="card tap" data-a="lnsel" data-k="${esc(g.k)}">${lineupLabel(g.ids,g.m)}<div class="mut" style="margin-top:4px">${g.t.r} rallies · ${g.t.pf}–${g.t.pa} (${sgn(g.t.pf-g.t.pa)}) · side-out ${pct(g.t.sow,g.t.son)} · hit ${fmtHit(g.T.hit)}</div></button>`).join('')||'<p class="mut">No lineup has that many rallies yet — lower “Min. rallies”.</p>'}
+   ${all.length>list.length?`<p class="mut">${all.length-list.length} lineup${all.length-list.length===1?'':'s'} hidden (fewer than ${lnMin} rallies).</p>`:''}
+   <p class="mut">A lineup = the six players in the rotation (libero and subs not part of it). Side-out = rallies won when the opponent served; Serve pts = rallies won when we served. Tap a lineup for its player stats.</p>`;
+}
+function pairsHTML(ids){
+  const recs=ctxAll(ids),seen=new Set();
+  recs.forEach(c=>{c.pos.forEach(x=>seen.add(x));if(c.lib)seen.add(c.lib)});
+  const players=sortedPlayers([...seen].map(P).filter(Boolean));
+  if(!players.length)return'<div class="card mut">No lineup data for these games yet. Set a starting lineup at the start of each set to use this view.</div>';
+  const A=seen.has(pairA)?pairA:'';
+  const head=`<label>Player<select data-ch="pairA"><option value="">Choose a player…</option>${players.map(p=>`<option value="${p.id}" ${p.id===A?'selected':''}>${esc(plabel(p))}</option>`).join('')}</select></label>
+   <label>Together with (partner position)<select data-ch="pairRole"><option value="">Anyone</option>${ROLES.map(([k,l])=>`<option value="${k}" ${pairRole===k?'selected':''}>${k} · ${l}</option>`).join('')}</select></label>`;
+  if(!A)return head+'<p class="mut">Pick a hitter (or any player) to see how their numbers change depending on who else is on court — e.g. choose an outside hitter and set partner position to ST (setter).</p>';
+  const base=[],by={};
+  for(const c of recs){
+    const on=c.lib?c.pos.concat(c.lib):c.pos;
+    if(!on.includes(A))continue;
+    base.push(c);
+    for(const b of on){if(b===A)continue;if(pairRole&&roleIn(c.m,b)!==pairRole)continue;(by[b]||(by[b]=[])).push(c)}
+  }
+  const row=(label,rs,cls)=>{
+    const t=teamSum(rs),a=calc(rs.map(c=>c.v).filter(v=>v.p===A))[A]||fin(fresh());
+    const w=t.r?Math.round(100*t.pf/t.r)+'%':'–';
+    return`<tr class="${cls||''}"><td>${label}</td><td>${t.r}</td><td>${a.ta}</td><td>${fmtHit(a.hit)}</td><td>${a.k}</td><td>${a.e}</td><td>${w}</td><td class="${t.pf-t.pa>0?'pos':t.pf-t.pa<0?'neg':''}">${sgn(t.pf-t.pa)}</td><td>${a.rec==null?'–':a.rec.toFixed(2)}</td><td>${a.rn}</td></tr>`;
+  };
+  const rows=Object.entries(by).map(([b,rs])=>({b,rs,r:teamSum(rs).r})).sort((x,y)=>y.r-x.r||byNum(x.b,y.b));
+  const lab=(b,rs)=>{const p=P(b),r=roleIn(rs[0].m,b);return esc(p?'#'+p.num+(p.name?' '+p.name:''):'?')+(r?`<span class="rl2">${r}</span>`:'')};
+  const th=['Partner','Rallies','TA','Hit%','K','E','Win%','+/−','Pass','PN'];
+  return`${head}<div class="tw"><table class="st pr"><thead><tr>${th.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>
+   ${row('<b>All rallies</b> with #'+esc(P(A).num)+' on court',base,'tot')}${rows.map(x=>row(lab(x.b,x.rs),x.rs)).join('')||`<tr><td colspan="10" class="mut" style="text-align:left">No rallies with a ${esc(pairRole)} on court alongside #${esc(P(A).num)}.</td></tr>`}</tbody></table></div>
+   <p class="mut">Rallies, Win% and +/− are the team’s results while both players were on court. TA, Hit%, K, E, Pass, PN are #${esc(P(A).num)}’s own numbers in those rallies. “On court together” ≠ “set by”: the app doesn’t record who set which attack. Small samples mislead — look at TA before trusting a Hit% gap.</p>`;
 }
 
 /* ================= modal ================= */
@@ -562,12 +659,16 @@ function rosterHTML(){
   return`${readOnly?'':`<form id="fPlayer" style="display:flex;gap:8px;align-items:end"><label style="width:84px;margin:0">#<input id="pNum" inputmode="numeric" maxlength="3" required></label>
   <label style="flex:1;margin:0">Name<input id="pName" autocomplete="off" placeholder="optional"></label><button class="pri" type="submit" style="min-height:46px">Add</button></form>
   <div class="mrow"><button data-a="pquick" class="ghost">Quick add #1–12</button></div>`}
-  ${list.map(p=>`<button class="card tap" ${readOnly?'':`data-a="pedit" data-id="${p.id}"`}><b style="font-size:20px">#${esc(p.num)}</b> ${esc(p.name)}</button>`).join('')||'<p class="mut">No players yet.</p>'}`;
+  ${list.map(p=>`<button class="card tap" ${readOnly?'':`data-a="pedit" data-id="${p.id}"`}><b style="font-size:20px">#${esc(p.num)}</b> ${esc(p.name)}${p.pos?`<span class="rl2">${p.pos}</span>`:''}</button>`).join('')||'<p class="mut">No players yet.</p>'}`;
 }
 function seasonStatsHTML(){
   const ids=filterIds(statFilter);
-  const evs=state.events.filter(v=>!ids||ids.has(v.m));
-  return`${filterSelect()}${statsHTML(evs)}<div class="mrow"><button data-a="csvStats" data-sc="season">Export stats CSV</button></div>`;
+  const chips=[['players','Players'],['lineups','Lineups'],['pairs','Pairs']].map(([k,l])=>`<button data-a="smode" data-k="${k}" class="${statMode===k?'on':''}">${l}</button>`).join('');
+  let body;
+  if(statMode==='lineups')body=lineupsHTML(ids);
+  else if(statMode==='pairs')body=pairsHTML(ids);
+  else{const evs=state.events.filter(v=>!ids||ids.has(v.m));body=statsHTML(evs)+'<div class="mrow"><button data-a="csvStats" data-sc="season">Export stats CSV</button></div>'}
+  return`<div class="fchips" style="padding-top:0">${chips}</div>${filterSelect()}${body}`;
 }
 function settingsHTML(){
   return`<button class="card tgl" data-a="tgl" data-k="sticky"><span><b>Keep player selected</b><div class="mut">After each button the same player stays selected (fastest). Off = clears after every tap.</div></span><b>${settings.sticky?'ON':'OFF'}</b></button>
@@ -608,10 +709,12 @@ function liveRO(m){
    While we serve, each rally must start with the server's serve result (needServe). */
 const ORDER=[4,3,2,5,6,1];
 const rotF=a=>{a.push(a.shift())},rotB=a=>{a.unshift(a.pop())};
-function lineupOf(m,set){
+function lineupOf(m,set){return replayLU(m,set,state.events)}
+// cb(v,pos,lib,serving) is called for every non-lineup event BEFORE its effect is applied (who was on court, who served)
+function replayLU(m,set,evs,cb){
   const L=m.lu&&m.lu[set];if(!L||!L.pos||L.pos.length!==6)return null;
   const pos=L.pos.slice();let serving=L.serve||'us',lib=L.lib||null,served=false;
-  for(const v of state.events){
+  for(const v of evs){
     if(v.m!==m.id||v.s!==set)continue;
     if(v.k==='lu'){
       if(v.r==='sub'){const i=pos.indexOf(v.o);if(i>=0)pos[i]=v.p}
@@ -621,6 +724,7 @@ function lineupOf(m,set){
       else if(v.r==='sknsv')served=true;
       continue;
     }
+    if(cb)cb(v,pos,lib,serving);
     if(v.k==='srv')served=true;
     if(v.pt==='us'){if(serving==='them')rotF(pos);serving='us';served=false}
     else if(v.pt==='them'){serving='them';served=false}
@@ -667,7 +771,7 @@ function luRender(){
   const slot=(i,tag)=>{const id=tag==='L'?lu.lib:lu.pos[i],pl=P(id);return`<button class="pl ${tag==='L'?'lib':''} ${lu.slot===(tag==='L'?'L':i)?'on':''}" data-a="luslot" data-p="${tag}"><i class="ps">${tag}</i>${pl?`<b>${esc(pl.num)}</b><small>${esc(pl.name)}</small>`:'<b>+</b>'}</button>`};
   setModal(`<h3>Starting lineup · Set ${lu.set}</h3><p class="mut">Net at the top. Tap players to fill positions 1→6, then the libero (optional, kept beside the court).</p>
   <div class="court"><div class="netbar"></div><div class="cgrid hl">${ORDER.map(p=>slot(p-1,p)).join('')}${slot(0,'L')}</div></div>
-  <div class="mut" style="margin-top:8px">Available</div><div class="chk">${avail.map(p=>`<button data-a="luput" data-id="${p.id}">${esc(plabel(p))}</button>`).join('')||'<span class="mut">—</span>'}</div>
+  <div class="mut" style="margin-top:8px">Available</div><div class="chk">${avail.map(p=>`<button data-a="luput" data-id="${p.id}">${esc(plabel(p))}${roleIn(m,p.id)?`<span class="rl2">${roleIn(m,p.id)}</span>`:''}</button>`).join('')||'<span class="mut">—</span>'}</div>
   <div class="mut" style="margin-top:10px">Who serves first?</div><div class="mrow"><button data-a="luserve" data-w="us" class="${lu.serve==='us'?'pri':''}">We serve</button><button data-a="luserve" data-w="them" class="${lu.serve==='them'?'pri':''}">They serve</button></div>
   <div class="mrow">${prev&&prev.pos?'<button data-a="lusame">Same as last set</button>':''}<button data-a="luclear">Clear</button>${lu.lib?'<button data-a="lunolib">No libero</button>':''}</div>
   <div class="mrow"><button data-a="mclose">Skip</button><button class="pri" data-a="lusave" ${full?'':'disabled'}>Start set</button></div>`);
@@ -679,7 +783,7 @@ function lmRender(){
   const prompt=lm.slot==null?'To substitute: tap the court player going out, then the player coming in. Tap L to change the libero.':lm.slot==='L'?'Choose the libero:':'Coming in at position '+(lm.slot+1)+':';
   setModal(`<h3>Lineup · Set ${m.cur}</h3><div class="court"><div class="netbar"></div><div class="cgrid hl">${ORDER.map(p=>slot(p-1,p)).join('')}${slot(0,'L')}</div></div>
   <div class="mut" style="margin-top:8px">${prompt}</div>
-  <div class="chk">${bench.map(p=>`<button data-a="lmsub" data-id="${p.id}" ${lm.slot==null?'disabled':''}>${esc(plabel(p))}</button>`).join('')||'<span class="mut">No one on the bench</span>'}${lm.slot==='L'&&L.lib?'<button data-a="lmnolib">No libero</button>':''}</div>
+  <div class="chk">${bench.map(p=>`<button data-a="lmsub" data-id="${p.id}" ${lm.slot==null?'disabled':''}>${esc(plabel(p))}${roleIn(m,p.id)?`<span class="rl2">${roleIn(m,p.id)}</span>`:''}</button>`).join('')||'<span class="mut">No one on the bench</span>'}${lm.slot==='L'&&L.lib?'<button data-a="lmnolib">No libero</button>':''}</div>
   <div class="mut" style="margin-top:12px">Fix a mistake</div>
   <div class="mrow"><button data-a="lmrot" data-d="b">↺ Rotate back</button><button data-a="lmrot" data-d="f">↻ Rotate forward</button></div>
   <div class="mrow"><button data-a="lmserve" data-w="us" class="${L.serving==='us'?'pri':''}">We serve</button><button data-a="lmserve" data-w="them" class="${L.serving==='them'?'pri':''}">They serve</button></div>
@@ -772,14 +876,19 @@ function matchForm(m){
   <label>Game type<select id="fType">${TYPES.map(([k,l])=>`<option value="${k}" ${(m?m.type:'league')===k?'selected':''}>${l}</option>`).join('')}</select></label>
   <label>Tournament / event name (optional — games with the same name are grouped)<input id="fEv" list="evl" value="${esc(m?m.ev:'')}" placeholder="e.g. Calgary Cup" autocomplete="off"><datalist id="evl">${evNames.map(n=>`<option value="${esc(n)}">`).join('')}</datalist></label>
   <label>Opponent<input id="fOpp" value="${esc(m?m.opp:'')}" placeholder="Opponent team" autocomplete="off"></label>
-  <label>Date<input id="fDate" type="date" value="${m?m.date:today()}"></label><div class="mut">Players in this game</div>
-  <div class="chk">${act.map(p=>`<label class="cb"><input type="checkbox" value="${p.id}" ${(!m||m.pids.includes(p.id))?'checked':''}><span>${esc(plabel(p))}</span></label>`).join('')}</div>
+  <label>Date<input id="fDate" type="date" value="${m?m.date:today()}"></label><div class="mut">Players in this game and their position (OH outside · OP opposite · MB middle · ST setter · LB libero)</div>
+  <div id="roster">${act.map(p=>{const r=(m&&m.pos&&m.pos[p.id])||p.pos||lastRole(p.id);return`<div class="prow"><label><input type="checkbox" value="${p.id}" ${(!m||m.pids.includes(p.id))?'checked':''}><span>${esc(plabel(p))}</span></label><select data-pid="${p.id}" aria-label="Position"><option value="">—</option>${ROLES.map(([k])=>`<option ${r===k?'selected':''}>${k}</option>`).join('')}</select></div>`}).join('')}</div>
   <div class="mrow"><button data-a="mclose">Cancel</button><button class="pri" data-a="${m?'msave':'mcreate'}">${m?'Save':'Start game'}</button></div>`);
 }
-function formVals(){return{type:$('fType').value,ev:$('fEv').value.trim(),opp:$('fOpp').value.trim(),date:$('fDate').value||today(),pids:[...document.querySelectorAll('#modal .cb input:checked')].map(i=>i.value)}}
+function formVals(){
+  const pids=[],pos={};
+  document.querySelectorAll('#modal .prow').forEach(r=>{const cb=r.querySelector('input'),sl=r.querySelector('select');if(!cb.checked)return;pids.push(cb.value);if(sl.value)pos[cb.value]=sl.value});
+  return{type:$('fType').value,ev:$('fEv').value.trim(),opp:$('fOpp').value.trim(),date:$('fDate').value||today(),pids,pos};
+}
 function playerForm(p){
   const used=state.events.some(v=>v.p===p.id);
   modal(`<h3>Edit player</h3><label>Number<input id="eNum" value="${esc(p.num)}" inputmode="numeric" maxlength="3"></label><label>Name<input id="eName" value="${esc(p.name)}"></label>
+  <label>Usual position (pre-fills the game roster)<select id="ePos"><option value="">—</option>${ROLES.map(([k,l])=>`<option value="${k}" ${p.pos===k?'selected':''}>${k} · ${l}</option>`).join('')}</select></label>
   <div class="mrow"><button data-a="mclose">Cancel</button><button class="pri" data-a="psave" data-id="${p.id}">Save</button></div>
   <div class="mrow"><button class="bad" data-a="pdel" data-id="${p.id}">${used?'Remove from roster (keeps past stats)':'Delete player'}</button></div>`);
 }
@@ -798,6 +907,7 @@ function genDemo(){
   const wpick=(arr,wf)=>{const w=arr.map(wf);let x=R()*w.reduce((a,b)=>a+b,0);for(let i=0;i<arr.length;i++){x-=w[i];if(x<=0)return arr[i]}return arr[arr.length-1]};
   const roster=state.players.filter(p=>!p.arch);
   if(roster.length<7){info('Add at least 7 players to the roster first.');return 0}
+  const DR=['ST','OH','OH','MB','MB','OP','ST','OH','MB','LB','OP','OH'],role={};sortedPlayers(roster).forEach((p,i)=>{role[p.id]=DR[i%DR.length]});
   const specs=shuffle([
     ...Array.from({length:6},()=>({fmt:'p',type:pick(['practice','practice','scrimmage'])})),
     ...Array.from({length:7},()=>({fmt:'b3',type:pick(['league','league','scrimmage'])})),
@@ -810,6 +920,7 @@ function genDemo(){
     let date=new Date(dt.getTime()-dt.getTimezoneOffset()*6e4).toISOString().slice(0,10),ev='';
     if(sp.type==='tournament'){ev=evNames[gi%2];if(evDate[ev])date=evDate[ev];else evDate[ev]=date}
     const m={id:uid(),ts:Date.now()+gi,type:sp.type,ev,opp:opps[gi%opps.length],date,pids:shuffle(roster).slice(0,ri(8,roster.length)).map(p=>p.id),nsets:0,cur:1,done:true,lu:{},demo:true};
+    m.pos={};m.pids.forEach(id=>{m.pos[id]=role[id]});
     const wr=0.43+R()*0.17;let t=new Date(date+'T19:00:00').getTime();const evs=[];
     const push=(e,s)=>{t+=ri(6,18)*1000;evs.push(Object.assign({id:uid(),ts:t,m:m.id,s,c:'demo'+gi+'_'+Math.floor(evs.length/300),pt:''},e))};
     const simRally=(c)=>{
@@ -832,13 +943,16 @@ function genDemo(){
       return'them';
     };
     const simSet=(s,target,firstServe)=>{
-      const six=shuffle(m.pids).slice(0,6),rest=m.pids.filter(x=>!six.includes(x));
-      const lib=rest.length&&R()<.65?pick(rest):null;let bench=rest.filter(x=>x!==lib);
+      const six=[];
+      for(const r of ['ST','OH','MB','OP','OH','MB']){const c=shuffle(m.pids.filter(x=>m.pos[x]===r&&!six.includes(x)))[0];six.push(c||null)}
+      for(let i=0;i<6;i++)if(!six[i])six[i]=shuffle(m.pids.filter(x=>!six.includes(x)&&m.pos[x]!=='LB'))[0]||shuffle(m.pids.filter(x=>!six.includes(x)))[0];
+      const rest=m.pids.filter(x=>!six.includes(x)),lbs=rest.filter(x=>m.pos[x]==='LB');
+      const lib=lbs.length&&R()<.85?lbs[0]:(rest.length&&R()<.4?pick(rest):null);let bench=rest.filter(x=>x!==lib);
       let serving=firstServe;m.lu[s]={pos:six.slice(),serve:serving,lib};
       const pos=six.slice(),subAt=R()<.4?ri(6,30):-1;let us=0,them=0,n=0;
       while(!((us>=target||them>=target)&&Math.abs(us-them)>=2)){
         n++;
-        if(n===subAt&&bench.length){const i=ri(0,5),out_=pos[i],in_=pick(bench);pos[i]=in_;bench=bench.filter(x=>x!==in_).concat(out_);push({p:in_,o:out_,k:'lu',r:'sub'},s)}
+        if(n===subAt&&bench.length){const i=ri(0,5),out_=pos[i],same=bench.filter(x=>m.pos[x]===m.pos[out_]),in_=same.length?pick(same):pick(bench);pos[i]=in_;bench=bench.filter(x=>x!==in_).concat(out_);push({p:in_,o:out_,k:'lu',r:'sub'},s)}
         const w=simRally({pos,lib,serving,s,wr:Math.min(.7,Math.max(.3,wr+(R()-.5)*.05))});
         if(w==='us'){if(serving==='them')rotF(pos);serving='us';us++}else{serving='them';them++}
       }
@@ -895,6 +1009,9 @@ document.addEventListener('click',async e=>{
     case'mok':{const f=pending;pending=null;closeModal();if(f)f();break}
     case'nav':view=t.dataset.v;render();break;
     case'mfilter':mFilter=t.dataset.k;render();break;
+    case'smode':statMode=t.dataset.k;lnSel=null;render();break;
+    case'lnsel':lnSel=t.dataset.k;render();window.scrollTo(0,0);break;
+    case'lnback':lnSel=null;render();break;
     case'home':view='matches';curId=null;sel=null;render();break;
     case'open':curId=t.dataset.id;view='match';mview='live';sel=null;lastMsg='';statSet='all';render();break;
     case'mtab':mview=t.dataset.v;render();break;
@@ -902,8 +1019,8 @@ document.addEventListener('click',async e=>{
     case'sort':{const k=t.dataset.key;if(sortKey===k)sortDir=-sortDir;else{sortKey=k;sortDir=1}render();break}
     case'tgl':settings[t.dataset.k]=!settings[t.dataset.k];saveSettings();render();break;
     case'newmatch':if(!state.players.some(p=>!p.arch)){info('Add your players in the Roster tab first.');break}matchForm(null);break;
-    case'mcreate':{const v=formVals();if(!v.pids.length){info('Pick at least one player.');break}const m={id:uid(),ts:Date.now(),type:v.type,ev:v.ev,opp:v.opp||'Opponent',date:v.date,pids:v.pids,nsets:1,cur:1,done:false};state.matches.push(m);markDirty();closeModal();curId=m.id;view='match';mview='live';sel=null;lastMsg='';render();if(m.pids.length>=6)luOpen(m,1);break}
-    case'msave':{const v=formVals(),m=curMatch();Object.assign(m,{type:v.type,ev:v.ev,opp:v.opp||'Opponent',date:v.date,pids:v.pids});markDirty();closeModal();render();break}
+    case'mcreate':{const v=formVals();if(!v.pids.length){info('Pick at least one player.');break}const m={id:uid(),ts:Date.now(),type:v.type,ev:v.ev,opp:v.opp||'Opponent',date:v.date,pids:v.pids,pos:v.pos,nsets:1,cur:1,done:false};state.matches.push(m);markDirty();closeModal();curId=m.id;view='match';mview='live';sel=null;lastMsg='';render();if(m.pids.length>=6)luOpen(m,1);break}
+    case'msave':{const v=formVals(),m=curMatch();Object.assign(m,{type:v.type,ev:v.ev,opp:v.opp||'Opponent',date:v.date,pids:v.pids,pos:v.pos});markDirty();closeModal();render();break}
     case'mmenu':{const m=curMatch();modal(`<h3>Game</h3><div class="stack"><button data-a="medit">Edit type / tournament / opponent / date / players</button><button data-a="mdone">${m.done?'Re-open game (mark in progress)':'Mark game finished'}</button><button data-a="csvStats" data-sc="match">Export stats CSV</button><button data-a="mdel" style="color:#ff8a8a">Delete this game</button><button data-a="mclose">Close</button></div>`);break}
     case'medit':matchForm(curMatch());break;
     case'mdone':{const m=curMatch();m.done=!m.done;markDirty();closeModal();render();break}
@@ -919,7 +1036,7 @@ document.addEventListener('click',async e=>{
     case'evdel':{state.events=state.events.filter(x=>x.id!==t.dataset.id);markDirty();closeModal();render();break}
     case'pquick':{const have=new Set(state.players.filter(p=>!p.arch).map(p=>String(p.num)));for(let i=1;i<=12;i++)if(!have.has(String(i)))state.players.push({id:uid(),num:String(i),name:''});markDirty();render();break}
     case'pedit':playerForm(P(t.dataset.id));break;
-    case'psave':{const p=P(t.dataset.id);const n=$('eNum').value.trim();if(!n)break;p.num=n;p.name=$('eName').value.trim();markDirty();closeModal();render();break}
+    case'psave':{const p=P(t.dataset.id);const n=$('eNum').value.trim();if(!n)break;p.num=n;p.name=$('eName').value.trim();if($('ePos').value)p.pos=$('ePos').value;else delete p.pos;markDirty();closeModal();render();break}
     case'pdel':{const id=t.dataset.id,p=P(id),used=state.events.some(v=>v.p===id);closeModal();if(used)p.arch=true;else{state.players=state.players.filter(x=>x.id!==id);state.matches.forEach(m=>{m.pids=m.pids.filter(x=>x!==id)})}markDirty();render();break}
     case'csvStats':{const sc=t.dataset.sc;let evs;if(sc==='match'){const m=curMatch();evs=state.events.filter(v=>v.m===m.id&&(statSet==='all'||v.s===+statSet));closeModal();showExport('Stats CSV','stats-'+m.date+'.csv',statsCSV(evs),'text/csv')}else{const ids=filterIds(statFilter);evs=state.events.filter(v=>!ids||ids.has(v.m));showExport('Stats CSV','stats.csv',statsCSV(evs),'text/csv')}break}
     case'csvEvents':showExport('All actions CSV','actions.csv',eventsCSV(state.events),'text/csv');break;
@@ -933,13 +1050,15 @@ document.addEventListener('click',async e=>{
     case'chpw':modal(`<h3>Change team password</h3><p class="mut">Takes effect for the next person who unlocks. People already unlocked stay unlocked until they close the page.</p><label>Current password<input id="op" type="password" autocomplete="current-password"></label><label>New password (6+)<input id="np" type="password" autocomplete="new-password"></label><div id="cpErr" style="color:#ff8a8a;min-height:18px"></div><div class="mrow"><button data-a="mclose">Cancel</button><button class="pri" data-a="chgo">Change</button></div>`);break;
     case'chgo':{const o=$('op').value,n=$('np').value;if(n.length<6){$('cpErr').textContent='New password needs 6+ characters.';break}const r=await unwrap(o);if(!r){$('cpErr').textContent='Current password is wrong.';break}try{await writeMeta(n,r.Kr,raw.meta.chk);closeModal();info('Password changed.')}catch(err){$('cpErr').textContent='Could not save: '+(err&&err.message||err)}break}
     case'forgot':e.preventDefault();confirmBox('Passwords cannot be recovered. You can wipe ALL team data and start over. Anyone with a backup can restore it afterwards.','Wipe & start over',async()=>{try{for(const id of Object.keys(raw))await col.doc(id).delete();raw={};synced={};KEY=null;loaded=false;ssDel('vbs.k');ssDel(SNAP);view='setup';render()}catch(err){info('Could not wipe: '+esc(err&&err.message||err))}},true);break;
-    case'help':modal(`<h3>How stats are counted</h3><p><b>Pick a player once</b> — they stay selected. Every button then records for that player and updates the score.</p><p><b>Point to us:</b> serve Ace, attack Kill, block Stuff, and “+1 opp error”.<br><b>Point to them:</b> serve Error, pass 0, attack Error, block Error, Fault, and “+1 them”.</p><p><b>Swing</b> = an attack that was neither a kill nor an error. <b>Pass</b> uses 3 (perfect) to 0 (aced/error). <b>Blk ast</b> gives credit without a point — tap Blk ast for the second blocker <i>first</i>, then Stuff for the blocker who gets the point (the point ends the rally, and the next tap must be the serve). <b>Fault</b> covers net, lift, rotation and dig/set errors.</p><p><b>Lineup &amp; rotation:</b> positions are numbered 1–6 with the net at the top (front row 4-3-2, back row 5-6-1; position 1 serves). We rotate automatically each time we win a rally the opponent served. The <b>libero</b> sits beside the court and is always selectable — no on/off tracking. Use <b>Lineup · subs</b> to substitute, change the libero, or correct the rotation / who is serving.</p><p><b>When we serve</b>, the server is selected for you and the rest of the screen is locked until you record the serve result (Ace / In / Error). If a serve genuinely wasn’t played, use <b>Lineup · subs → Skip this serve</b>.</p><p>Wrong player or button? <b>Undo</b> removes your last tap; the <b>Log</b> tab can reassign or delete any entry. Two identical taps within 0.3 s count once.</p><div class="mrow"><button class="pri" data-a="mclose">Got it</button></div>`);break;
+    case'help':modal(`<h3>How stats are counted</h3><p><b>Pick a player once</b> — they stay selected. Every button then records for that player and updates the score.</p><p><b>Point to us:</b> serve Ace, attack Kill, block Stuff, and “+1 opp error”.<br><b>Point to them:</b> serve Error, pass 0, attack Error, block Error, Fault, and “+1 them”.</p><p><b>Swing</b> = an attack that was neither a kill nor an error. <b>Pass</b> uses 3 (perfect) to 0 (aced/error). <b>Blk ast</b> gives credit without a point — tap Blk ast for the second blocker <i>first</i>, then Stuff for the blocker who gets the point (the point ends the rally, and the next tap must be the serve). <b>Fault</b> covers net, lift, rotation and dig/set errors.</p><p><b>Lineup &amp; rotation:</b> positions are numbered 1–6 with the net at the top (front row 4-3-2, back row 5-6-1; position 1 serves). We rotate automatically each time we win a rally the opponent served. The <b>libero</b> sits beside the court and is always selectable — no on/off tracking. Use <b>Lineup · subs</b> to substitute, change the libero, or correct the rotation / who is serving.</p><p><b>When we serve</b>, the server is selected for you and the rest of the screen is locked until you record the serve result (Ace / In / Error). If a serve genuinely wasn’t played, use <b>Lineup · subs → Skip this serve</b>.</p><p><b>Positions, lineups &amp; pairs:</b> pick each player’s position (OH, OP, MB, ST, LB) when you set up the game. In <b>Stats</b>, <b>Lineups</b> shows how each starting six performed (rallies, point difference, side-out %, hit %), and <b>Pairs</b> shows one player’s numbers depending on who else was on court — e.g. a hitter with each setter. “On court together” is not “set by”: the app doesn’t record who set which attack. The <b>By opponent</b> filter works in all three views.</p><p>Wrong player or button? <b>Undo</b> removes your last tap; the <b>Log</b> tab can reassign or delete any entry. Two identical taps within 0.3 s count once.</p><div class="mrow"><button class="pri" data-a="mclose">Got it</button></div>`);break;
   }
   }catch(err){console.error(err);setSave('err')}
 });
 document.addEventListener('change',e=>{
   const c=e.target.dataset&&e.target.dataset.ch;if(!c)return;
-  if(c==='statFilter')statFilter=e.target.value;if(c==='statSet')statSet=e.target.value;render();
+  const val=e.target.value;
+  if(c==='statFilter'){statFilter=val;lnSel=null}else if(c==='statSet')statSet=val;else if(c==='lnSort')lnSort=val;else if(c==='lnMin')lnMin=+val;else if(c==='pairA')pairA=val;else if(c==='pairRole')pairRole=val;
+  render();
 });
 document.addEventListener('submit',async e=>{
   e.preventDefault();const id=e.target.id;
